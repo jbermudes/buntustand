@@ -9,22 +9,33 @@ HOST = 'localhost'
 
 # create a socket
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#server.setblocking(0) # non-blocking
+server.setblocking(0) # non-blocking
+
+inbuf = ''
+outbuf = ''
 
 # connect to server
 server.connect((HOST, PORT))
 
-server.send('foo')
-
 while(1):
-        data = server.recv(4096) # read up to 1000000 bytes
-        i += 1
-        if (i < 5): # look only at the first part of the message
-                print data
-        if not data: # if end of data, leave loop
-                break
-        print 'received', len(data), 'bytes'
 
-# close the connection
-s.close()
+    try: #try RX
+        inbuf = server.recv(1024)
+
+        if len(inbuf) == 0:
+            server.close() # Bad connection, We likely want to reconnect
+            continue
+
+        # do stuff with buf
+
+
+    except socket.error: # Excepion (no data RX, but connection still there)
+        pass
+
+    try: # try TX
+        sent = server.send(outbuf)
+        outbuf = outbuf[sent:]
+
+    except socket.error: # We only want to catch SIGPIPE (server disconnect)
+        pass
 

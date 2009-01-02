@@ -30,7 +30,7 @@ while(1):
         print 'found: ', addr, ' == ', cl.getpeername(), ' and ', cl.fileno()
         # We need some sort of unique doohickey? A: We're using fileno()
         # I imagine these get re-used, so we need to delete after disconnect
-        clients[cl.fileno()] = (cl,,'','')
+        clients[cl.fileno()] = (cl,'','')
         pollbooth.register(cl.fileno()) # poll for all three types (IN, PRI, OUT)
     except socket.error:
         pass # This is normal (no new connections)
@@ -58,6 +58,7 @@ while(1):
                 # We need to handle this ISO being dropped (here)
                 del clients[cl.fileno()] #remove from clients
                 print "dropping socket:",cl.fileno()
+                cl.close()
                 continue # get out of this loop (so we don't re-set in clients)
 
             inbuf = inbuf + cl.recv(1024) # read data
@@ -92,7 +93,7 @@ while(1):
             #We can send whatever we need to here
             if outbuf:
                 sent = cl.send(outbuf)
-                outbuf = outbuf[sent-1:] # we sent 'sent' number of char, so slice outbuf accordingly
+                outbuf = outbuf[sent:] # we sent 'sent' number of char, so slice outbuf accordingly
 
         if event & select.POLLERR:
             # Bad stuff happens?  "error" isn't well defined  What may we get?
@@ -105,6 +106,7 @@ while(1):
             #We need to handle ISO being dropped (here)
             del clients[cl.fileno()]
             print "dropping socket:",cl.fileno()
+            cl.close()
             continue # get out of this loop (so we don't re-set in clients)
         
         
@@ -131,7 +133,7 @@ def queue_CD(cd, priority=10):
         pass
 
 def get_statistics():
-    # Does something fancy with printing crap to frontend
+    # Does something fancy with printing to frontend
     return
 
 def check_valid_iso(cd):
