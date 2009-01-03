@@ -11,7 +11,7 @@ POLL_TIMEOUT = 100 # Wait 100 milliseconds each poll?
 
 connections = {} # Keep track of connections and buffers
 pollbooth = select.poll() # Our polling object
-MCP = dumblogic()
+MCP = dumblogic.dumblogic()
 
 listen = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen.bind((HOST, PORT))
@@ -23,9 +23,10 @@ while(1):
         (conn,addr) = listen.accept()
         conn.setblocking(0) # non-blocking on connections either
         print 'found: ', addr, ' == ', conn.getpeername(), ' and ', conn.fileno()
+        conn,inbuf,outbuf = MCP.found_new(conn)
         # We need some sort of unique doohickey? A: We're using fileno()
         # I imagine these get re-used, so we need to delete after disconnect
-        connections[conn.fileno()] = (conn,'','')
+        connections[conn.fileno()] = (conn,inbuf,outbuf)
         pollbooth.register(conn.fileno()) # poll for all three types (IN, PRI, OUT)
     except socket.error:
         pass # This is normal (no new connections)
@@ -61,7 +62,7 @@ while(1):
             print "read: ",len(inbuf)," buf: ",inbuf
             #if we don't get it all here, we'll have another poll immediately
             #afterwards where we'll get the rest
-            if inbuf.find('\r\n\r\n'): # end of a command so deal with it
+            if inbuf.find(MCP.COM_TERMINATE): # end of a command so deal with it
                 # We need to deal with it some how.  Likely in a separate area
                 # This separate area will figure out what to reply with, which 
                 # includes figuring out what iso to hand over
