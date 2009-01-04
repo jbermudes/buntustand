@@ -1,24 +1,7 @@
 #!/usr/bin/env python
 
 import socket
-
-# Protocol pieces:
-# x -- Fully supported
-# * -- protocol support (maybe not functional)
-# -> IDENT *
-# <- ID *
-# -> CAPAB *
-# <- CAP *
-# <- STATUS AVAIL|BUSY
-# -> BURN [HASH] *
-# <- STATUS [HASH] 0 *
-# <- STATUS [HASH] %
-# <- STATUS [HASH] 100
-# <- STATUS [HASH] PASS|FAIL
-# -> OPEN *
-# <- STATUS OPEN *
-# -> WHATIS *
-# <- INFO HASH FILE DESC *
+import datetime
 
 PORT = 1337
 HOST = 'localhost'
@@ -63,8 +46,24 @@ def image_info(hash):
     # we need to modify the server code slightly (for an empty line in the description, use '\r\n \r\n')
     return ('38e3f4d0774a143bd24f1f2e42e80d63','ubuntu-8.04.1-desktop-i386.iso',"Ubuntu 8.04 (Hardy Heron) 32bit Desktop Image\r\n \r\nThis image is for the most common computers out there.  If you're in doubt, get this image.")
 
-def tray_open():
+def tray_open(): # Opens the Tray
     return
+
+def start_burn(file): # Starts burning (filename)
+    return
+
+def tray_status(): # returns status of the tray (open, empty, full)
+    return 'full' # empty and full imply closed
+
+def burn_status(): # Returns a number (percentage) of our progress through the burn
+    return 26
+
+def get_filename(hash): # Returns a filename (from an image directory? absolute path?) for the given hash
+    return 'ubuntu-8.04.1-1-desktop-i386.iso'
+
+def check_md5():
+    #checks md5 of the disk in the drive
+    return 1
 
 # create a socket
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -72,6 +71,10 @@ server.setblocking(0) # non-blocking
 
 inbuf = ''
 outbuf = ''
+
+burning = '' # hash of current CD we're burning
+
+marker = datetime.datetime.now()
 
 unique_ident = '033312ebed6b1e5c5a691fd6e24f7534' 
 # Figure out someway to generate
@@ -115,8 +118,9 @@ while(1):
         if pieces[0] == 'CAPAB':
             print 'RX: CAPAB'
             send(('CAP','BURN' + drive_type(),COM_DELIM.join(get_hashes()))) # We could re-split hashes; that's silly
+            marker = datetime.datetime.now() # We'll send our first STATUS AVAIL|EMPTY in 10 seconds
         if pieces[0] == 'WHATIS':
-            send('INFO',COM_DELIM.join(image_info(pieces[1]))) # We could re-split info, but its not required
+            send(('INFO',COM_DELIM.join(image_info(pieces[1])))) # We could re-split info, but its not required
         if pieces[0] == 'OPEN':
             # Open the tray
             open_tray()
@@ -128,16 +132,37 @@ while(1):
                 pass
             else:
                 # Start Burn
+                burning = pieces[1]
+                start_burn(get_filename(pieces[1]))
                 send(('STATUS',pieces[1],'0')) # Burn starts at 0
-                #Timer starts
+                marker = datetime.datetime.now() # For timing purposes
 
     # That's everything that the server will send us (except for file transfer stuff)
     # Everything else is generated based on stuff happening locally
-    if get_tray_status == 'open':
+    # These are all mutually exclusive; could use elif
+    if tray_status() == 'open':
         send(('STATUS','OPEN'))
-    
-
-
+    elif burn_status() == 100:
+        timediff = datetime.datetime.now() - marker
+        send(('STATUS',burning,'100','TIME',str(timediff.days*3600*24 + timediff.seconds))) # I hope not days 
+        if check_md5():
+            send(('STATUS',burning,'PASS'))
+        else:
+            send(('STATUS',burning,'FAIL'))
+        # Either way, make sure its unmounted (md5 might already do this?)
+        # We likely need to unmount before md5 check too?
+    elif burn_status() % 25 == 0: # This is a little awkward, could theoretically send 26 or whatnot
+        # effectively disabled for now (always returns 26 % 25 = 1 != 0)
+        send(('STATUS',burning,get_burn_status)) # we also only want to do this once per milestone
+    else:
+        timediff = datetime.datetime.now() - marker
+        if (timediff.days > 0 or timediff.seconds >= 10):
+            # I would hope we wouldn't be waiting a full day
+            marker = datetime.datetime.now()
+            if tray_status() == 'empty':
+                send(('STATUS','EMPTY',drive_type()))
+            elif tray_status() == 'full':
+                send(('STATUS','AVAIL',disc_type()))
 
 
 
