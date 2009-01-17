@@ -3,6 +3,7 @@
 import curses
 import curses.wrapper
 import curses.panel
+import curses.ascii
 
 tabnames = ("Order","Packages","Clients","Queue")
 tabs = []
@@ -14,6 +15,17 @@ def draw_tabs(scr,names,active):
         scr.addstr(0,i*13+1,"/          \\")
         scr.addstr(0,i*13+3,tabnames[i])
     scr.addstr(1,active*13+1,"            ")
+
+def toHex(s):
+    lst = []
+    for ch in s:
+        hv = hex(ord(ch)).replace('0x', '')
+        if len(hv) == 1:
+            hv = '0'+hv
+        lst.append(hv)
+    
+    return reduce(lambda x,y:x+y, lst)
+   
 
 def main(stdscr):
     curses.curs_set(0) # hide cursor
@@ -57,11 +69,18 @@ def main(stdscr):
     tabs[2].addstr(4,2,"This tab modifies client information")
     tabs[3].addstr(5,2,"This tab lets you modify the queue directly")
 
-    for i in range(19,22): # For debugging purposes (so the key stands out)
-        for j in range(29,32):
-            stdscr.addstr(j,i,"-")
+#    for i in range(19,23): # For debugging purposes (so the key stands out)
+#        for j in range(29,32):
+#            stdscr.addstr(j,i,"-")
 
     active_tab = 0
+#   stdscr.nodelay(1)
+    curses.meta(1)
+#    stdscr.keypad(1)
+    stdscr.addstr(29,2,"ch:")
+    stdscr.addstr(30,2,"keyname(ch):")
+    stdscr.addstr(31,2,"unctrl(ch):")
+    stdscr.addstr(32,2,"alt('1'):")
     while(1):
 
         stdscr.noutrefresh()
@@ -71,20 +90,59 @@ def main(stdscr):
         tabs[active_tab].noutrefresh()
         curses.doupdate()
 
-        ch = stdscr.getkey()
-        stdscr.addstr(30,20,ch) # for debugging purposes
-        if ch == 'h':
+#        for i in range(19,61): # For debugging purposes (so the key stands out)
+#            for j in range(29,33):
+#                stdscr.addstr(j,i," ")
+#        stdscr.noutrefresh()
+
+        ch = stdscr.getch() # Raw character code
+        if curses.ascii.ismeta(ch):
+            stdscr.addstr(28,20,"Meta!")
+        else:
+            stdscr.addstr(28,20,"No!!?")
+        stdscr.addstr(29,20,toHex(str(ch)))
+        stdscr.addstr(29,40,str(ch))
+        stdscr.addstr(28,30,curses.ascii.unctrl(ch))
+        if ch == curses.ERR: # No keypress
+            continue
+        key = curses.keyname(ch) # convert to printable (readable keycaps)
+        stdscr.addstr(28,35,curses.ascii.unctrl(ch)) #Debug
+        stdscr.addstr(30,20,toHex(key))
+        stdscr.addstr(28,40,curses.ascii.unctrl(ch)) #Debug
+        stdscr.addstr(31,20,toHex(curses.ascii.unctrl(ch)))
+        stdscr.addstr(28,45,curses.ascii.unctrl(ch)) #Debug
+        stdscr.addstr(32,20,toHex(curses.ascii.alt('1')))
+        stdscr.addstr(28,50,curses.ascii.unctrl(ch)) #Debug
+        stdscr.addstr(30,40,key)
+        stdscr.addstr(28,55,curses.ascii.unctrl(ch)) #Debug
+        stdscr.addstr(31,40,curses.ascii.unctrl(ch))  # How on *earth* does this give us something different?
+        stdscr.addstr(28,60,curses.ascii.unctrl(ch)) #Debug
+        stdscr.addstr(32,40,curses.ascii.alt('1'))
+        stdscr.addstr(28,65,curses.ascii.unctrl(ch)) #Debug
+        if ch == curses.KEY_F5:
             active_tab = 0
-        elif ch == 'j':
+        elif (toHex(curses.ascii.unctrl(ch)) == '315b'): # yes this is a hack -- And it doesn't even work
             active_tab = 1
-        elif ch == 'k':
+        elif curses.ascii.unctrl(ch) == "2[":
             active_tab = 2
-        elif ch == 'l':
+        elif key == 'M-4':
             active_tab = 3
-        if ch == 'q':
+        elif ch == curses.KEY_LEFT:
+            active_tab -= 1
+            active_tab %= 4
+        elif ch == curses.KEY_RIGHT:
+            active_tab += 1
+            active_tab %= 4
+        if key == 'q':
             break
+ 
 
         curses.flash()
 
+
+
 curses.wrapper(main)
+
+
+# window.nodelay(true)
 
