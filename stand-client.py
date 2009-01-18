@@ -29,12 +29,18 @@ tabs = []
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setblocking(0) # non-blocking
 
+clients = []
+# clients are a tuple of ID,Name,type,status # type includes hash
+queue = []
+# Queue items are tuples of hash,priority
+# or do we want to do flavor,arch,version,yadda,yadda,priority?
+
 inbuf = ''
 outbuf = ''
 
 ## Socket Functions
 
-def get_ident():
+def get_ident(): # Return our client ID
     # Figure out someway to generate
     # Maybe md5 of MAC address and /dev/sdX or something?
     # Persistence only matters for burners, so we can use 
@@ -73,6 +79,7 @@ def draw_tabs(scr,names,active):
     scr.addstr(1,active*13+2,"          ")
 
 def do_menu_order(scr): # Do the static page stuff for Order page
+    #tabs[0].addstr(2,2,"This tab is where you ask for stuff")
     y_max,x_max = scr.getmaxyx()
     make_box(tabs[0],8,1,y_max-2-2-8,x_max-4)
     #scr.addstr(y_max,1,"X:" + str(x_max) + "Y:" + str(y_max))
@@ -91,33 +98,107 @@ def do_menu_order(scr): # Do the static page stuff for Order page
     scr.addstr(6,3,"[ ] Edubuntu") # Edu
     scr.addstr(6,7,"Edu",curses.color_pair(COLOR_E)|curses.A_BOLD)
     #Version
-    scr.addstr(4,19,"[ NEW ]")
-    scr.addstr(5,19,"MM.YY  ",curses.A_UNDERLINE)
-    scr.addstr(6,19,"[ OLD ]")
+    scr.addstr(4,18,"[ NEW ]")
+    scr.addstr(5,18,"MM.YY  ",curses.A_UNDERLINE)
+    scr.addstr(6,18,"[ OLD ]")
     #Arch
-    scr.addstr(4,28,"[ ] i386")
-    scr.addstr(5,28,"[ ] AMD64")
+    scr.addstr(4,27,"[ ] i386")
+    scr.addstr(5,27,"[ ] AMD64")
     #Type
-    scr.addstr(3,40,"[ ] Desktop")
-    scr.addstr(4,40,"[ ] Alternate")
-    scr.addstr(5,40,"[ ] Server")
+    scr.addstr(3,39,"[ ] Desktop")
+    scr.addstr(4,39,"[ ] Alternate")
+    scr.addstr(5,39,"[ ] Server")
     #Quantity/Priority
-    scr.addstr(3,56,"Qty: ")
-    scr.addstr(3,61,"  ",curses.A_UNDERLINE)
-    scr.addstr(5,56,"Pri: ")
-    scr.addstr(5,61,"  ",curses.A_UNDERLINE)
+    scr.addstr(3,55,"Qty: ")
+    scr.addstr(3,60,"  ",curses.A_UNDERLINE)
+    scr.addstr(5,55,"Pri: ")
+    scr.addstr(5,60,"  ",curses.A_UNDERLINE)
 
     # Submits, Clear
     scr.addstr(y_max-2,2,"[ Submit Single ]")
     scr.addstr(y_max-2,25,"[ Submit Package ]")
     scr.addstr(y_max-2,50,"[ Reset ]")
 
+def do_menu_packages(scr):
+    scr.addstr(3,2,"This tab is for modifying packages")
+
+def do_menu_clients(scr):
+    scr.addstr(4,2,"This tab modifies client information")
+
+def do_menu_queue(scr):
+    scr.addstr(5,2,"This tab lets you modify the queue directly")
+
+## "Active" displays (client status, queue stuffs)
+
+def update_display_queue(scr):
+    # Loop through local copy of queue and call print_Q_item
+    for index,item in enumerate(queue):
+        hash,pri = item
+        output_Q_item(scr,index,get_hash_info(hash),pri)
+
+def output_Q_item(scr,index,item,pri):
+    # Prints item on line index of scr (index is queue index, not window line)
+    if item[0] == 'Ubuntu':
+       attr = curses.color_pair(COLOR_U)
+    elif item[0] == 'Kubuntu':
+       attr = curses.color_pair(COLOR_K) | curses.A_BOLD
+    elif item[0] == 'Edubuntu':
+       attr = curses.color_pair(COLOR_E) | curses.A_BOLD
+    elif item[0] == 'Xubuntu':
+       attr = curses.color_pair(COLOR_X) | curses.A_BOLD
     
+    if item[1][0:4] == '6.06':
+        ver = 'D'
+    elif item[1] == '6.10':
+        ver = 'E'
+    elif item[1] == '7.04':
+        ver = 'F'
+    elif item[1] == '7.10':
+        ver = 'G'
+    elif item[1][0:4] == '8.04':
+        ver = 'H'
+    elif item[1] == '8.10':
+        ver = 'I'
+    elif item[1] == '9.04':
+        ver = 'J'
+
+    scr.addstr(index+2,3,"          ")
+    scr.addstr(index+2,3,item[0][0:1],attr)
+    scr.addstr(index+2,5,ver)
+    scr.addstr(index+2,7,item[2][0:1])
+    scr.addstr(index+2,9,item[3][0:1])
+    scr.addstr(index+2,11,pri)
+
+
+def update_display_clients(scr):
+    # Loop through local copy of clients and call output_client
+    for i in range(0,6):
+        output_client(scr,i,' ')
+
+
+def output_client(scr,index,client):
+    scr.addstr(1,index*11+2,'test')
+
+def get_queue():
+    queue.append(('12b4','5'))
+    queue.append(('1231','7'))
+    queue.append(('1233','10'))
+    queue.append(('1232','15'))
+    queue.append(('b0cf','1'))
+
+# CD info stuff
+def get_hash_info(hash): # Dummy
+    info = [('Ubuntu','8.04.1','AMD64','Desktop'),('Kubuntu','8.10','i386','Alternate'),
+            ('Xubuntu','6.06.2','i386','Server'),('Edubuntu','8.04.1','AMD64','Alternate')]
+    index = int(hash,16) % len(info)
+    return info[index]
+
+## Main stuffs
 
 def main(stdscr):
     curses.curs_set(0) # hide cursor
-    curses.init_pair(1,curses.COLOR_YELLOW,curses.COLOR_BLACK) # Ubuntu (Yellow?) Magenta?
-    curses.init_pair(2,curses.COLOR_BLUE,curses.COLOR_BLACK) # Kubuntu Blue on Blank
+    curses.init_pair(1,curses.COLOR_YELLOW,curses.COLOR_BLACK) # Ubuntu (Yellow?)
+    curses.init_pair(2,curses.COLOR_BLUE,curses.COLOR_BLACK) # Kubuntu Blue on Black
     curses.init_pair(3,curses.COLOR_RED,curses.COLOR_BLACK) # Edubuntu
     curses.init_pair(4,curses.COLOR_CYAN,curses.COLOR_BLACK) # Xubuntu
 
@@ -154,13 +235,17 @@ def main(stdscr):
         draw_tabs(tabs[i],tabnames,i)
 
     # Put some test stuff in the tabs
-    #tabs[0].addstr(2,2,"This tab is where you ask for stuff")
     do_menu_order(tabs[0])
-    tabs[1].addstr(3,2,"This tab is for modifying packages")
-    tabs[2].addstr(4,2,"This tab modifies client information")
-    tabs[3].addstr(5,2,"This tab lets you modify the queue directly")
+    do_menu_packages(tabs[1])
+    do_menu_clients(tabs[2])
+    do_menu_queue(tabs[3])
+
+    # Dummy stuff
+    get_queue()
 
     active_tab = 0
+    stale_queue = True
+    stale_client = True
     stdscr.nodelay(1)
     curses.meta(1)
     while(1):
@@ -172,6 +257,16 @@ def main(stdscr):
         tabs[active_tab].noutrefresh()
         curses.doupdate()
 
+        # Handle Communication
+        if stale_queue:
+            update_display_queue(win_sidebar)
+            stale_queue = False
+        if stale_client:
+            update_display_clients(win_topbar)
+            stale_client = False
+
+
+        # Handle user Input
         code = stdscr.getch()
         if (code == curses.ERR): # If no keypress, move on to next loop
             continue
@@ -192,32 +287,39 @@ def main(stdscr):
 #           active_tab %= 4
         elif key == '^[1': # alt-1
             active_tab = 0
+            # Reset whatever state tab 0 is in?
         elif key == '^[2':
             active_tab = 1
+            #Reset tab 1
         elif key == '^[3':
             active_tab = 2
+            #Reset tab 2
         elif key == '^[4': # alt-4
             active_tab = 3
-        elif key == 'r':
-            fg,bg = curses.pair_content(1)
-            fg += 1
-            fg %= curses.COLORS
-            curses.init_pair(1,fg,bg)
-        elif key == 'f':
-            fg,bg = curses.pair_content(1)
-            fg -= 1
-            fg %= curses.COLORS
-            curses.init_pair(1,fg,bg)
-        elif key == 'p':
-            fg,bg = curses.pair_content(1)
-            bg += 1
-            bg %= curses.COLORS
-            curses.init_pair(1,fg,bg)
-        elif key == 'l':
-            fg,bg = curses.pair_content(1)
-            bg -= 1 
-            bg %= curses.COLORS
-            curses.init_pair(1,fg,bg)
+        elif key == 'z':
+            queue.append(queue.pop(0))
+            stale_queue = True
+            #Reset Tab 3
+#       elif key == 'r':
+#           fg,bg = curses.pair_content(1)
+#           fg += 1
+#           fg %= curses.COLORS
+#           curses.init_pair(1,fg,bg)
+#       elif key == 'f':
+#           fg,bg = curses.pair_content(1)
+#           fg -= 1
+#           fg %= curses.COLORS
+#           curses.init_pair(1,fg,bg)
+#       elif key == 'p':
+#           fg,bg = curses.pair_content(1)
+#           bg += 1
+#           bg %= curses.COLORS
+#           curses.init_pair(1,fg,bg)
+#       elif key == 'l':
+#           fg,bg = curses.pair_content(1)
+#           bg -= 1 
+#           bg %= curses.COLORS
+#           curses.init_pair(1,fg,bg)
         else:
             curses.flash() # Flash on non-mapped key
 
