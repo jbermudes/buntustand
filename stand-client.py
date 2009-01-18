@@ -5,6 +5,11 @@ import curses.wrapper
 import curses.panel
 import curses.ascii
 
+#import logging
+#LOG_NAME = "command-log"
+#logging.basicConfig(filename=LOG_NAME,level=logging.DEBUG,)
+
+
 tabnames = ("Order","Packages","Clients","Queue")
 tabs = []
 
@@ -69,18 +74,9 @@ def main(stdscr):
     tabs[2].addstr(4,2,"This tab modifies client information")
     tabs[3].addstr(5,2,"This tab lets you modify the queue directly")
 
-#    for i in range(19,23): # For debugging purposes (so the key stands out)
-#        for j in range(29,32):
-#            stdscr.addstr(j,i,"-")
-
     active_tab = 0
-#   stdscr.nodelay(1)
+    stdscr.nodelay(1)
     curses.meta(1)
-#    stdscr.keypad(1)
-    stdscr.addstr(29,2,"ch:")
-    stdscr.addstr(30,2,"keyname(ch):")
-    stdscr.addstr(31,2,"unctrl(ch):")
-    stdscr.addstr(32,2,"alt('1'):")
     while(1):
 
         stdscr.noutrefresh()
@@ -90,54 +86,34 @@ def main(stdscr):
         tabs[active_tab].noutrefresh()
         curses.doupdate()
 
-#        for i in range(19,61): # For debugging purposes (so the key stands out)
-#            for j in range(29,33):
-#                stdscr.addstr(j,i," ")
-#        stdscr.noutrefresh()
-
-        ch = stdscr.getch() # Raw character code
-        if curses.ascii.ismeta(ch):
-            stdscr.addstr(28,20,"Meta!")
-        else:
-            stdscr.addstr(28,20,"No!!?")
-        stdscr.addstr(29,20,toHex(str(ch)))
-        stdscr.addstr(29,40,str(ch))
-        stdscr.addstr(28,30,curses.ascii.unctrl(ch))
-        if ch == curses.ERR: # No keypress
+        code = stdscr.getch()
+        if (code == curses.ERR): # If no keypress, move on to next loop
             continue
-        key = curses.keyname(ch) # convert to printable (readable keycaps)
-        stdscr.addstr(28,35,curses.ascii.unctrl(ch)) #Debug
-        stdscr.addstr(30,20,toHex(key))
-        stdscr.addstr(28,40,curses.ascii.unctrl(ch)) #Debug
-        stdscr.addstr(31,20,toHex(curses.ascii.unctrl(ch)))
-        stdscr.addstr(28,45,curses.ascii.unctrl(ch)) #Debug
-        stdscr.addstr(32,20,toHex(curses.ascii.alt('1')))
-        stdscr.addstr(28,50,curses.ascii.unctrl(ch)) #Debug
-        stdscr.addstr(30,40,key)
-        stdscr.addstr(28,55,curses.ascii.unctrl(ch)) #Debug
-        stdscr.addstr(31,40,curses.ascii.unctrl(ch))  # How on *earth* does this give us something different?
-        stdscr.addstr(28,60,curses.ascii.unctrl(ch)) #Debug
-        stdscr.addstr(32,40,curses.ascii.alt('1'))
-        stdscr.addstr(28,65,curses.ascii.unctrl(ch)) #Debug
-        if ch == curses.KEY_F5:
-            active_tab = 0
-        elif (toHex(curses.ascii.unctrl(ch)) == '315b'): # yes this is a hack -- And it doesn't even work
-            active_tab = 1
-        elif curses.ascii.unctrl(ch) == "2[":
-            active_tab = 2
-        elif key == 'M-4':
-            active_tab = 3
-        elif ch == curses.KEY_LEFT:
+        key = curses.keyname(code) # convert to printable (readable keycaps)
+        if key == '^[': # meta (alt)? get *one* more char (this may be wrong?) More?
+            ch = stdscr.getch()
+            if (ch != curses.ERR): # Its a real character
+                code = 255 * code + ch # Add them (16 bits)
+                key = key + curses.keyname(ch) # concat
+ 
+        if key == 'q': # quit!
+            break
+        elif code == curses.KEY_LEFT:
             active_tab -= 1
             active_tab %= 4
-        elif ch == curses.KEY_RIGHT:
+        elif code == curses.KEY_RIGHT:
             active_tab += 1
             active_tab %= 4
-        if key == 'q':
-            break
- 
-
-        curses.flash()
+        elif key == '^[1': # alt-1
+            active_tab = 0
+        elif key == '^[2':
+            active_tab = 1
+        elif key == '^[3':
+            active_tab = 2
+        elif key == '^[4': # alt-4
+            active_tab = 3
+        else:
+            curses.flash() # Flash on non-mapped key
 
 
 
