@@ -26,6 +26,44 @@ COLOR_X = 4
 COLOR_PASS = 5
 COLOR_FAIL = 6
 
+KEY_UP = 0
+KEY_DOWN = 1
+KEY_LEFT = 2
+KEY_RIGHT = 3
+KEY_CONFIRM = 4
+KEY_CANCEL = 5
+KEY_EJECT = 6
+KEY_RENAME = 7
+KEY_DELETE = 8
+KEY_PLUS = 9
+KEY_MINUS = 10
+
+keysdown = []
+blankkeys = [0,0,0,0,0,0,0,0,0,0]
+
+KEYCODE_UP = 'h'
+KEYCODE_DOWN = 'l'
+KEYCODE_LEFT = 'j'
+KEYCODE_RIGHT = 'k'
+KEYCODE_CONFIRM = 'ENTER'
+KEYCODE_CANCEL = 'CANCEL'
+KEYCODE_EJECT = 'e'
+KEYCODE_RENAME = 'r'
+
+order_cursor = 0
+order_mode = 0
+order_spinner_indices = [0,0,0,0,0,0]
+
+packages_cursor = 0
+
+clients_cursor = 0
+
+queue_cursor = 0
+
+packages = ["Custom CD", "Package B", "Package C", "Package D", "Package E", "Package F", "Package G"]
+
+active_tab = 0
+is_running = True
 tabnames = ("Order","Packages","Clients","Queue","")
 tabs = []
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -65,19 +103,19 @@ def get_hash_info(hash): # Dummy
 
 ## Curses Functions
 
-def make_box(scr,y,x,h,w): # y,x is top left corner (of border), h,w is empty space inside
+def make_box(scr,y,x,h,w,attr=0): # y,x is top left corner (of border), h,w is empty space inside
     for i in range(y+1,y+h+1):
-        scr.addch(i,x,curses.ACS_VLINE)
-        scr.addch(i,x+w+1,curses.ACS_VLINE)
+        scr.addch(i,x,curses.ACS_VLINE | attr)
+        scr.addch(i,x+w+1,curses.ACS_VLINE | attr)
 
     for i in range(x+1,x+w+1):
-        scr.addch(y,i,curses.ACS_HLINE)
-        scr.addch(y+h+1,i,curses.ACS_HLINE)
+        scr.addch(y,i,curses.ACS_HLINE | attr)
+        scr.addch(y+h+1,i,curses.ACS_HLINE | attr)
 
-    scr.addch(y,x,curses.ACS_ULCORNER)
-    scr.addch(y,x+w+1,curses.ACS_URCORNER)
-    scr.addch(y+h+1,x,curses.ACS_LLCORNER)
-    scr.addch(y+h+1,x+w+1,curses.ACS_LRCORNER)
+    scr.addch(y,x,curses.ACS_ULCORNER | attr)
+    scr.addch(y,x+w+1,curses.ACS_URCORNER | attr)
+    scr.addch(y+h+1,x,curses.ACS_LLCORNER | attr)
+    scr.addch(y+h+1,x+w+1,curses.ACS_LRCORNER | attr)
 
 
 def draw_tabs(scr,names,active):
@@ -93,55 +131,162 @@ def draw_tabs(scr,names,active):
         scr.addnstr(0, i*13+2, ' ' + tabnames[i] + '         ',10,att)
     scr.addstr(1,active*13+2,"          ")
 
-def do_menu_order(scr): # Do the static page stuff for Order page
-    #tabs[0].addstr(2,2,"This tab is where you ask for stuff")
+def draw_spinner(scr, y, x, label, value, selected, label_tab=10, value_tab=10):
+    
+    attr = 0
+    if selected == True:
+        attr = curses.A_REVERSE
+    scr.addstr(y,x," "*(label_tab+value_tab), attr)
+    scr.addstr(y, x, label, attr)
+    scr.addstr(y, x+label_tab, "[", attr)
+    scr.addstr(y, x+label_tab+1, value, attr)
+    scr.addstr(y, x+label_tab+value_tab, "]", attr)
+
+def draw_scrollpane(scr, y, x, h, w, title, data, sel_index):
+    start_row = sel_index - (h / 2)
+    #if sel_index > 0:
+     #   start_row = sel_index - (h / 2)
+        
+    end_row = start_row + h
+    if end_row > len(data):
+        end_row = len(data)
+    
+    attr = 0
+    make_box(scr, y, x, h, w)
+    scr.addstr(y, (x + w) / 2 - len(title) / 2, " " + title + " ")
+    for i in range(start_row, end_row):
+        if i == sel_index:
+            attr = curses.A_REVERSE
+        else:
+            attr = 0
+        scr.addstr(y + (i - start_row) +1, x+1, " " * w, attr)
+        scr.addstr(y + (i - start_row) +1, x+1, str( (i % len(data)) + 1 ) + ". " + data[i], attr)
+    
+    # arrows
+    #scr.addch(y+1, x+w, curses.ACS_UARROW)
+    #scr.addch(y+h, x+w, curses.ACS_DARROW)
+
+# The Orders Tab
+def draw_menu_order(scr): # Do the static page stuff for Order page
+    
+    scr.erase()
     y_max,x_max = scr.getmaxyx()
-    make_box(tabs[0],8,1,y_max-2-2-8,x_max-4)
+    draw_scrollpane(scr, 2, 1, 5, 60, "CD Packages", packages, order_cursor)
+    #make_box(tabs[0],2,1,y_max-2-2-9,x_max-4)
     #scr.addstr(y_max,1,"X:" + str(x_max) + "Y:" + str(y_max))
-    scr.addstr(2,x_max/2-4,"Single CD")
-    scr.addstr(8,x_max/2-6," CD Packages ")
+    
     #scr.addstr(y_max//2,x_max//2,"*")
 
     # Single CD stuff
-    # Flavor
-    scr.addstr(3,3,"[ ] Ubuntu")   # U
-    scr.addstr(3,7,"U",curses.color_pair(COLOR_U))
-    scr.addstr(4,3,"[ ] Kubuntu")  # K
-    scr.addstr(4,7,"Ku",curses.color_pair(COLOR_K)|curses.A_BOLD)
-    scr.addstr(5,3,"[ ] Xubuntu")  # X
-    scr.addstr(5,7,"Xu",curses.color_pair(COLOR_X)|curses.A_BOLD)
-    scr.addstr(6,3,"[ ] Edubuntu") # Edu
-    scr.addstr(6,7,"Edu",curses.color_pair(COLOR_E)|curses.A_BOLD)
-    #Version
-    scr.addstr(4,18,"[ NEW ]")
-    scr.addstr(5,18,"MM.YY  ",curses.A_UNDERLINE)
-    scr.addstr(6,18,"[ OLD ]")
-    #Arch
-    scr.addstr(4,27,"[ ] i386")
-    scr.addstr(5,27,"[ ] AMD64")
-    #Type
-    scr.addstr(3,39,"[ ] Desktop")
-    scr.addstr(4,39,"[ ] Alternate")
-    scr.addstr(5,39,"[ ] Server")
-    #Quantity/Priority
-    scr.addstr(3,55,"Qty: ")
-    scr.addstr(3,60,"  ",curses.A_UNDERLINE)
-    scr.addstr(5,55,"Pri: ")
-    scr.addstr(5,60,"  ",curses.A_UNDERLINE)
+    indent = 9
+    row = 10
+    
+    if order_mode == 1:
+        scr.addstr(9,x_max/2-7," Single CD")
+        
+        # Flavor
+        draw_spinner(scr, row, indent, "Flavor:", "Ubuntu", (order_cursor == 0))
+        #scr.addstr(3,indent+11,"E",curses.color_pair(COLOR_E))
+        
+        # Version
+        draw_spinner(scr, row+1, indent, "Version:", "8.10", (order_cursor == 1))
+        
+        # Architecture
+        draw_spinner(scr, row+2, indent, "Arch:", "i386", (order_cursor == 2))
+        
+        # Type
+        draw_spinner(scr, row+3, indent, "Type:", "Alternate", (order_cursor == 3))
+        
+        # Quantity
+        draw_spinner(scr, row, indent+27, "Quantity:", "1", (order_cursor == 4), 11, 5)
+        
+        # Priority
+        draw_spinner(scr, row+1, indent+27, "Priority:", "1", (order_cursor == 5), 11, 5)
 
     # Submits, Clear
     scr.addstr(y_max-2,2,"[ Submit Single ]")
     scr.addstr(y_max-2,25,"[ Submit Package ]")
     scr.addstr(y_max-2,50,"[ Reset ]")
+    
+    scr.addstr(14, 4, str(order_cursor))
 
-def do_menu_packages(scr):
+# The Packages Tab
+def draw_menu_packages(scr):
+    scr.erase()
     scr.addstr(3,2,"This tab is for modifying packages")
 
-def do_menu_clients(scr):
-    scr.addstr(4,2,"This tab modifies client information")
+# The Clients Tab
+def draw_menu_clients(scr):
+    scr.erase()
+    num_clients = 6
+    client_names = ["JESS", "FLANNEL", "NHAINES", "YASUMOTO", "LIKETOTA", ""]
+    client_ip = ["X.X.128.87", "X.X.128.92", "X.X.128.33", "X.X.128.103", "X.X.128.79", ""]
+    client_jobs = ["Ubuntu 8.10 i386 Dsk.", "Kubuntu 8.10 i386 Dsk.", "Edubuntu 8.10 i386 Srv.", "", "Ubuntu 8.10 i386 Alt.", ""]
+    client_status = ["BURNING (87%)", "TEST PASSED", "VERIFYING", "AWAITING MEDIA", "BURNING (8%)", "NO CLIENT"]
+    selected_client = 0
+    
+    y_max,x_max = scr.getmaxyx()
+    width = 32
+    height = 4
+    
+    
+    for i in range(num_clients):
+        row = i / 2
+        col = 0 if i % 2 == 0 else 1
+        posy = (row * height)+2
+        posx = (col * width)
+        
+        attr = curses.color_pair(COLOR_X) | curses.A_BOLD if i == selected_client else 0
+        make_box(tabs[2],posy,posx,2,30, attr)
+        scr.addstr(posy, posx+2, client_names[i], attr)
+        scr.addstr(posy, posx+15, client_ip[i], attr)
+        scr.addstr(posy+1, posx+1, "Job: " + client_jobs[i])
+        scr.addstr(posy+2, posx+1, "Status: " + client_status[i])
+    
+    scr.addstr(y_max-3,15," --- Displaying 1-6 of 6 ---")
+    
+    scr.addstr(y_max-1,2,"J/K: Up/Down   H/L: Left/Right   E: Eject    R: Rename")
 
-def do_menu_queue(scr):
-    scr.addstr(5,2,"This tab lets you modify the queue directly")
+def draw_menu_queue(scr, update=0):
+    scr.erase()
+    queue_len = 5
+    distros = ["Edubuntu", "Ubuntu", "Kubuntu", "Xubuntu", "Ubuntu"]
+    versions = ["8.10", "8.04", "7.10", "8.10", "8.10"]
+    architectures = ["i386", "i386", "PPC", "AMD", "i386"]
+    types = ["Alt.", "Dsk.", "Srv.", "Dsk.", "Dsk"]
+    priorities = ["5", "7", "10", "11", "30"]
+    selected_item = 0
+    
+    y_max,x_max = scr.getmaxyx()
+    offset = 2
+    make_box(tabs[3],2,1,y_max-2-2-3,x_max-4)
+    scr.addstr(2,2,"# ")
+    scr.addstr(2,6," Distro ")
+    scr.addstr(2,18," Ver. ")
+    scr.addstr(2,26," Arch. ")
+    scr.addstr(2,35," Type ")
+    scr.addstr(2,44," Pri: ")
+    if update == 1:
+        scr.addstr(2,44," Jess: ")
+    
+    for i in range(queue_len):
+        
+        if i == selected_item:
+            attr = curses.A_REVERSE
+            scr.addstr(i+3, offset, " " * 60, attr)
+        else:
+            attr = 0
+        
+        scr.addstr(i+3, offset, str(i+1)+".", attr)
+        scr.addstr(i+3, offset+5, distros[i], attr)
+        scr.addstr(i+3, offset+17, versions[i], attr)
+        scr.addstr(i+3, offset+25, architectures[i], attr)
+        scr.addstr(i+3, offset+34, types[i], attr)
+        scr.addstr(i+3, offset+43, priorities[i], attr)
+    
+    scr.addstr(y_max-3,15," --- Displaying 1-5 of 5 ---")
+    
+    scr.addstr(y_max-1,2,"J/K: Up/Down   DEL: Remove   +/-: Priority")
 
 ## "Active" displays (client status, queue stuffs)
 
@@ -296,6 +441,93 @@ def get_clients(): # Dummy Client Population
     clients.append(('033312ebed6b1e5c5a691fd6e24f7532','Client4','CDR','1231231231231231236\tPASS'))
     clients.append(('033312ebed6b1e5c5a691fd6e24f7535','Client5','CDR','1231231231231231230\tFAIL'))
 
+def update_menu_order():
+    global order_cursor, keysdown, order_spinner_indices
+    
+    if keysdown[KEY_DOWN]:
+        order_cursor += 1
+    elif keysdown[KEY_UP]:
+        order_cursor -= 1
+    elif keysdown[KEY_LEFT]:
+        order_spinner_indices[order_cursor] -= 1
+    elif keysdown[KEY_RIGHT]:
+        order_spinner_indices[order_cursor] += 1
+    
+    if order_mode == 0:
+        order_cursor %= len(packages)
+    elif order_mode == 1:
+        order_cursor %= 6
+
+def update_tab(i):
+    if i == 0:
+        update_menu_order()
+        draw_menu_order(tabs[i])
+        draw_tabs(tabs[i],tabnames,i)
+    elif i == 1:
+        draw_menu_packages(tabs[i])
+        draw_tabs(tabs[i],tabnames,i)
+    elif i == 2:
+        draw_menu_clients(tabs[i])
+        draw_tabs(tabs[i],tabnames,i)
+    elif i == 3:
+        draw_menu_queue(tabs[i])
+        draw_tabs(tabs[i],tabnames,i)
+
+def handle_input(scr):
+    global active_tab
+    global is_running
+    global keysdown
+    
+    code = scr.getch()
+    if (code == curses.ERR): # If no keypress, move on to next loop
+        return
+    key = curses.keyname(code) # convert to printable (readable keycaps)
+    if key == '^[': # meta (alt)? get *one* more char (this may be wrong?) More?
+        ch = scr.getch()
+        if (ch != curses.ERR): # Its a real character
+            code = 255 * code + ch # Add them (16 bits)
+            key = key + curses.keyname(ch) # concat
+    
+    if key == 'q': # quit!
+        is_running = False
+    elif key == '^[1': # alt-1
+        active_tab = 0
+        # Reset whatever state tab 0 is in?
+    elif key == '^[2':
+        active_tab = 1
+        #Reset tab 1
+    elif key == '^[3':
+        active_tab = 2
+        #Reset tab 2
+    elif key == '^[4': # alt-4
+        active_tab = 3
+    elif key == 'z':
+        queue.append(queue.pop(0))
+        stale_queue = True
+        #Reset Tab 3
+    elif code in (ord('h'), curses.KEY_UP):
+        keysdown[KEY_UP] = 1
+    elif code in (ord('l'), curses.KEY_DOWN):
+        keysdown[KEY_DOWN] = 1
+    elif code in (ord('j'), curses.KEY_LEFT):
+        keysdown[KEY_LEFT] = 1
+    elif code in (ord('k'), curses.KEY_RIGHT):
+        keysdown[KEY_RIGHT] = 1
+    elif code == 10: # Enter key
+        keysdown[KEY_CONFIRM] = 1
+    elif code == 27: # Esc key
+        keysdown[KEY_CANCEL] = 1
+    elif code == 330: # Del key
+        keysdown[KEY_DELETE] = 1
+    else:
+        scr.addstr(22, 3, str(code))
+        curses.flash() # Flash on non-mapped key
+
+def clear_keys():
+    global keysdown
+    for i in range(10):
+        keysdown[i] = 0
+                    
 ## Main stuffs
 
 def main(stdscr):
@@ -335,33 +567,36 @@ def main(stdscr):
     tabs.append(curses.newwin(17,65,4,15))  # our panels get GC'd
     tabs.append(curses.newwin(17,65,4,15))  # Using Win instead?
 
-    for i in range(0,len(tabs)):
-        #tabs[i].bkgd(' ',curses.color_pair(1))
-        draw_tabs(tabs[i],tabnames,i)
-
     # Put some test stuff in the tabs
-    do_menu_order(tabs[0])
-    do_menu_packages(tabs[1])
-    do_menu_clients(tabs[2])
-    do_menu_queue(tabs[3])
+    draw_menu_order(tabs[0])
+    draw_menu_packages(tabs[1])
+    draw_menu_clients(tabs[2])
+    draw_menu_queue(tabs[3])
 
     # Dummy stuff
     get_queue()
     get_clients()
 
+    global active_tab
+    global is_running
+    global keysdown
+    global blankkeys
+    keysdown = blankkeys
     active_tab = 0
     stale_queue = True
     stale_client = True
     stdscr.nodelay(1)
     curses.meta(1)
-    while(1):
-
+    while(is_running):
+        
+        
         stdscr.noutrefresh()
         win_sidebar.noutrefresh()
         win_topbar.noutrefresh()
         tabs[active_tab].touchwin() # Have to make them think this is modified
         tabs[active_tab].noutrefresh()
         curses.doupdate()
+        
 
         # Handle Communication
         if stale_queue:
@@ -372,62 +607,11 @@ def main(stdscr):
             stale_client = False
 
 
-        # Handle user Input
-        code = stdscr.getch()
-        if (code == curses.ERR): # If no keypress, move on to next loop
-            continue
-        key = curses.keyname(code) # convert to printable (readable keycaps)
-        if key == '^[': # meta (alt)? get *one* more char (this may be wrong?) More?
-            ch = stdscr.getch()
-            if (ch != curses.ERR): # Its a real character
-                code = 255 * code + ch # Add them (16 bits)
-                key = key + curses.keyname(ch) # concat
- 
-        if key == 'q': # quit!
-            break
-#       elif code == curses.KEY_LEFT:
-#           active_tab -= 1
-#           active_tab %= 4
-#       elif code == curses.KEY_RIGHT:
-#           active_tab += 1
-#           active_tab %= 4
-        elif key == '^[1': # alt-1
-            active_tab = 0
-            # Reset whatever state tab 0 is in?
-        elif key == '^[2':
-            active_tab = 1
-            #Reset tab 1
-        elif key == '^[3':
-            active_tab = 2
-            #Reset tab 2
-        elif key == '^[4': # alt-4
-            active_tab = 3
-        elif key == 'z':
-            queue.append(queue.pop(0))
-            stale_queue = True
-            #Reset Tab 3
-#       elif key == 'r':
-#           fg,bg = curses.pair_content(1)
-#           fg += 1
-#           fg %= curses.COLORS
-#           curses.init_pair(1,fg,bg)
-#       elif key == 'f':
-#           fg,bg = curses.pair_content(1)
-#           fg -= 1
-#           fg %= curses.COLORS
-#           curses.init_pair(1,fg,bg)
-#       elif key == 'p':
-#           fg,bg = curses.pair_content(1)
-#           bg += 1
-#           bg %= curses.COLORS
-#           curses.init_pair(1,fg,bg)
-#       elif key == 'l':
-#           fg,bg = curses.pair_content(1)
-#           bg -= 1 
-#           bg %= curses.COLORS
-#           curses.init_pair(1,fg,bg)
-        else:
-            curses.flash() # Flash on non-mapped key
+        handle_input(stdscr)
+        update_tab(active_tab)
+        
+        #clear keys
+        clear_keys()
 
 
 
