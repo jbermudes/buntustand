@@ -2,8 +2,13 @@
 from sets import Set
 import heapq
 import datetime
+import logging
 class dumblogic:
 
+    LOG_NAME = "logic-log"
+    
+    logging.basicConfig(filename=LOG_NAME,level=logging.DEBUG,)
+    
     VERSION = 1
 
     COM_TERMINATE = '\r\n\r\n'
@@ -36,7 +41,7 @@ class dumblogic:
     def assemble_message(self,parts):
         return self.COM_DELIM.join(parts) + self.COM_TERMINATE
     
-    def is_hash(str):
+    def is_hash(self,str):
         if len(str) > 10: # This can be done better, obviously
             return True
         return False
@@ -57,6 +62,7 @@ class dumblogic:
 
     def handle_communication(self,(conn,inbuf,outbuf)):
         # We know we have a completed command (\r\n\r\n) on inbuf
+        logging.debug('Handle: ' + inbuf+ 'END')
         message,inbuf = inbuf.split(self.COM_TERMINATE,1)
         pieces = message.split(self.COM_DELIM) #Could be limited if we need %flow
         type = ''
@@ -92,7 +98,7 @@ class dumblogic:
 
         elif pieces[0] == 'STATUS': # Could be idle, could be burning
             (type,version,status,hashes,misc) = self.clients[self.conn2client[conn.fileno()]]
-            if is_hash(pieces[1]):
+            if self.is_hash(pieces[1]):
                 # We're burning, or done burning (not idle)
                 # Update our status about its status
                 # If its FAIL, we need to re-queue that ISO

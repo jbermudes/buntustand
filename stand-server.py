@@ -62,29 +62,7 @@ while(1):
             print "read: ",len(inbuf)," buf: ",inbuf
             #if we don't get it all here, we'll have another poll immediately
             #afterwards where we'll get the rest
-            if inbuf.find(MCP.COM_TERMINATE): # end of a command so deal with it
-                # We need to deal with it some how.  Likely in a separate area
-                # This separate area will figure out what to reply with, which 
-                # includes figuring out what iso to hand over
-                # It very well may be that iso and status are completely contained
-                # in this other module, along with lots of other record keeping goodies
-                # If that's the case, we don't need them here (really, they make more 
-                # sense in another location.  We can rename clients to connections 
-                # and only deal with cl and the two buffers, like proper separation
-                # dictates we ought to.
-                # -- I've convinced myself.  So, whatever we pass this to should modify
-                # the buffers appropriately (please be sure to append/slice, and not 
-                # simply set/delete), and this will magically take care of TX/RX without
-                # a care for what it's sending/recieving
-                #   I imagine this will be some other module with proper public methods
-                # (well, what... two public methods? handle_stuff() and socket_disconnect() 
-                # All of the logic lives inside of it, including which sockets are 
-                # burners, which are clients and it also will get the stuff from 
-                # the clients to queue and stuff.  In otherwords, ignore *all* 
-                # of the functions below because they belong in magic-smart-module
-                conn,inbuf,outbuf = MCP.handle_communication((conn,inbuf,outbuf))
-                pass
-        
+       
         if event & select.POLLOUT:
             #We can send whatever we need to here
             if outbuf:
@@ -108,5 +86,30 @@ while(1):
         
         
         connections[conn.fileno()] = (conn,inbuf,outbuf) # replace modified status
-
+    
+    for key in connections:
+        (conn,inbuf,outbuf) = connections[key]
+        if inbuf.find(MCP.COM_TERMINATE) > -1: # end of a command so deal with it
+            # We need to deal with it some how.  Likely in a separate area
+            # This separate area will figure out what to reply with, which 
+            # includes figuring out what iso to hand over
+            # It very well may be that iso and status are completely contained
+            # in this other module, along with lots of other record keeping goodies
+            # If that's the case, we don't need them here (really, they make more 
+            # sense in another location.  We can rename clients to connections 
+            # and only deal with cl and the two buffers, like proper separation
+            # dictates we ought to.
+            # -- I've convinced myself.  So, whatever we pass this to should modify
+            # the buffers appropriately (please be sure to append/slice, and not 
+            # simply set/delete), and this will magically take care of TX/RX without
+            # a care for what it's sending/recieving
+            #   I imagine this will be some other module with proper public methods
+            # (well, what... two public methods? handle_stuff() and socket_disconnect() 
+            # All of the logic lives inside of it, including which sockets are 
+            # burners, which are clients and it also will get the stuff from 
+            # the clients to queue and stuff.  In otherwords, ignore *all* 
+            # of the functions below because they belong in magic-smart-module
+            conn,inbuf,outbuf = MCP.handle_communication((conn,inbuf,outbuf))
+        connections[conn.fileno()] = (conn,inbuf,outbuf)
+ 
 
