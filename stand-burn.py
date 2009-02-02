@@ -141,7 +141,7 @@ while(1):
     # Everything else is generated based on stuff happening locally
     # These are all mutually exclusive; could use elif
     if tray_status() == 'open':
-        send(('STATUS','OPEN'))
+        send(('STATUS',drive_type(),'OPEN'))
     elif burn_status() == 100:
         timediff = datetime.datetime.now() - marker
         send(('STATUS',burning,'100','TIME',str(timediff.days*3600*24 + timediff.seconds))) # I hope not days 
@@ -160,9 +160,9 @@ while(1):
             # I would hope we wouldn't be waiting a full day
             marker = datetime.datetime.now()
             if tray_status() == 'empty':
-                send(('STATUS','EMPTY',drive_type()))
+                send(('STATUS',drive_type(),'EMPTY'))
             elif tray_status() == 'full':
-                send(('STATUS','AVAIL',disc_type()))
+                send(('STATUS',disc_type(),'AVAIL'))
 
 
 
