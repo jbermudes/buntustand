@@ -60,6 +60,10 @@ clients_cursor = 0
 
 queue_cursor = 0
 
+flavors = ["Ubuntu", "Kubuntu", "Edubuntu", "Xubuntu"]
+versions = ["8.04.2", "8.10"]
+architectures = ["i386", "AMD64"]
+types = ["Desktop", "Server", "Alternate"]
 packages = ["Custom CD", "Package B", "Package C", "Package D", "Package E", "Package F", "Package G", "Package H"]
 
 active_tab = 0
@@ -170,17 +174,16 @@ def draw_scrollpane(scr, y, x, h, w, title, data, sel_index):
     
     if end_row < len(data):
         scr.addch(y+h, x+w, curses.ACS_DARROW)
-    
-    scr.addstr(16, 10, str(start_row))
-    scr.addstr(16, 15, str(sel_index))
-    scr.addstr(16, 20, str(h))
 
 # The Orders Tab
 def draw_menu_order(scr): # Do the static page stuff for Order page
     
     scr.erase()
     y_max,x_max = scr.getmaxyx()
-    draw_scrollpane(scr, 2, 1, 5, 60, "CD Packages", packages, order_cursor)
+    selected_pkg = order_cursor
+    if order_mode == 1:
+        selected_pkg = 0
+    draw_scrollpane(scr, 2, 1, 5, 60, "CD Packages", packages, selected_pkg)
     #make_box(tabs[0],2,1,y_max-2-2-9,x_max-4)
     #scr.addstr(y_max,1,"X:" + str(x_max) + "Y:" + str(y_max))
     
@@ -194,7 +197,7 @@ def draw_menu_order(scr): # Do the static page stuff for Order page
         scr.addstr(9,x_max/2-7," Single CD")
         
         # Flavor
-        draw_spinner(scr, row, indent, "Flavor:", "Ubuntu", (order_cursor == 0))
+        draw_spinner(scr, row, indent, "Flavor:", flavors[order_spinner_indices[order_cursor] % len(flavors)], (order_cursor == 0))
         #scr.addstr(3,indent+11,"E",curses.color_pair(COLOR_E))
         
         # Version
@@ -213,9 +216,8 @@ def draw_menu_order(scr): # Do the static page stuff for Order page
         draw_spinner(scr, row+1, indent+27, "Priority:", "1", (order_cursor == 5), 11, 5)
 
     # Submits, Clear
-    scr.addstr(y_max-2,2,"[ Submit Single ]")
-    scr.addstr(y_max-2,25,"[ Submit Package ]")
-    scr.addstr(y_max-2,50,"[ Reset ]")
+    scr.addstr(y_max-2,10,"[ Submit Order ]")
+    scr.addstr(y_max-2,35,"[ Reset ]")
     
     scr.addstr(14, 4, str(order_cursor))
 
@@ -451,16 +453,26 @@ def get_clients(): # Dummy Client Population
     clients.append(('033312ebed6b1e5c5a691fd6e24f7535','Client5','CDR','1231231231231231230\tFAIL'))
 
 def update_menu_order():
-    global order_cursor, keysdown, order_spinner_indices
+    # order modes: pkg, custom, submit
+    global order_cursor, keysdown, order_spinner_indices, order_mode
     
     if keysdown[KEY_DOWN]:
         order_cursor += 1
     elif keysdown[KEY_UP]:
         order_cursor -= 1
     elif keysdown[KEY_LEFT]:
-        order_spinner_indices[order_cursor] -= 1
+        if order_mode == 1:
+            order_spinner_indices[order_cursor] -= 1
     elif keysdown[KEY_RIGHT]:
-        order_spinner_indices[order_cursor] += 1
+        if order_mode == 1:
+            order_spinner_indices[order_cursor] += 1
+    elif keysdown[KEY_CONFIRM]:
+        pkgid = order_cursor
+        if pkgid == 0:
+            order_mode = 1
+        else:
+            order_mode = 2
+    
     
     if order_mode == 0:
         if order_cursor > len(packages) - 1:
