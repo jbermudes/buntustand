@@ -60,7 +60,7 @@ clients_cursor = 0
 
 queue_cursor = 0
 
-packages = ["Custom CD", "Package B", "Package C", "Package D", "Package E", "Package F", "Package G"]
+packages = ["Custom CD", "Package B", "Package C", "Package D", "Package E", "Package F", "Package G", "Package H"]
 
 active_tab = 0
 is_running = True
@@ -143,9 +143,9 @@ def draw_spinner(scr, y, x, label, value, selected, label_tab=10, value_tab=10):
     scr.addstr(y, x+label_tab+value_tab, "]", attr)
 
 def draw_scrollpane(scr, y, x, h, w, title, data, sel_index):
-    start_row = sel_index - (h / 2)
-    #if sel_index > 0:
-     #   start_row = sel_index - (h / 2)
+    start_row = 0
+    if sel_index > h - 1:
+        start_row = sel_index - h + 1
         
     end_row = start_row + h
     if end_row > len(data):
@@ -154,17 +154,26 @@ def draw_scrollpane(scr, y, x, h, w, title, data, sel_index):
     attr = 0
     make_box(scr, y, x, h, w)
     scr.addstr(y, (x + w) / 2 - len(title) / 2, " " + title + " ")
-    for i in range(start_row, end_row):
+    for row in range(start_row, end_row):
+        i = row % len(data)
         if i == sel_index:
             attr = curses.A_REVERSE
         else:
             attr = 0
-        scr.addstr(y + (i - start_row) +1, x+1, " " * w, attr)
-        scr.addstr(y + (i - start_row) +1, x+1, str( (i % len(data)) + 1 ) + ". " + data[i], attr)
+            
+        scr.addstr(y + (row - start_row) +1, x+1, " " * (w-1), attr)
+        scr.addstr(y + (row - start_row) +1, x+1, str(i) + ". " + data[i], attr)
     
     # arrows
-    #scr.addch(y+1, x+w, curses.ACS_UARROW)
-    #scr.addch(y+h, x+w, curses.ACS_DARROW)
+    if start_row > 0:
+        scr.addch(y+1, x+w, curses.ACS_UARROW)
+    
+    if end_row < len(data):
+        scr.addch(y+h, x+w, curses.ACS_DARROW)
+    
+    scr.addstr(16, 10, str(start_row))
+    scr.addstr(16, 15, str(sel_index))
+    scr.addstr(16, 20, str(h))
 
 # The Orders Tab
 def draw_menu_order(scr): # Do the static page stuff for Order page
@@ -454,7 +463,10 @@ def update_menu_order():
         order_spinner_indices[order_cursor] += 1
     
     if order_mode == 0:
-        order_cursor %= len(packages)
+        if order_cursor > len(packages) - 1:
+            order_cursor = len(packages) - 1
+        elif order_cursor < 0:
+            order_cursor = 0
     elif order_mode == 1:
         order_cursor %= 6
 
