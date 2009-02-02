@@ -92,9 +92,13 @@ def get_ident(): # Return our client ID
     return '033312ebed6b1e5c5a691fd6e24f7535'
 
 def is_hash(str):
-    if len(str) > 10: # This can be done better, obviously
+    if len(str) == 32:
+        for ch in str:
+            if ch not in "0123456789abcdef":
+                return False
         return True
     return False
+
 
 # CD info stuff
 def get_hash_info(hash): # Dummy

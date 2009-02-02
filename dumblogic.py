@@ -42,7 +42,10 @@ class dumblogic:
         return self.COM_DELIM.join(parts) + self.COM_TERMINATE
     
     def is_hash(self,str):
-        if len(str) > 10: # This can be done better, obviously
+        if len(str) == 32:
+            for ch in str:
+                if ch not in "0123456789abcdef":
+                    return False
             return True
         return False
 
