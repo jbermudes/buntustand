@@ -129,6 +129,7 @@ while(1):
         if pieces[0] == 'BURN':
             if pieces[1] not in get_hashes():
                 # Error
+                send(('ERROR','NOISO','Burner does not have this ISO.'))
                 pass
             else:
                 # Start Burn
