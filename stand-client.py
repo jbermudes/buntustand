@@ -350,7 +350,7 @@ def update_display_clients(scr):
 
 def output_client(scr,index,client):
 #   logging.debug('output: ' + client[3])
-    if client[3].count('\t') < 1: # Things without a tab, those things are status
+    if client[3].count('\t') < 1: # Things without a tab, I don't think anything still does
         hash = 'x'
         status = client[3]
     else:
@@ -411,9 +411,9 @@ def output_client(scr,index,client):
             prog = '! FAIL !'
         scr.addstr(2,index*11+1,prog,attr)
 
-    else: # not a hash, must be AVAIL|EMPTY|OPEN # These will be status, hash will be 'x'
-        # Itd be nice to not have to swap avail|empty and CDR|DVD.  Swap protocols to make that happen
-        attr = 0 # Need some way to *ask* for a DVD instead of a CD
+    else: # not a hash, must be AVAIL|EMPTY|OPEN # These will be status, hash will be disk/drive type (CDR|DVD)
+        # Need some way to *ask* for a DVD instead of a CD
+        attr = 0
         if status == 'OPEN':
             attr |= 0
             stat = 'OPEN'
