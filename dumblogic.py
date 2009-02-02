@@ -99,7 +99,7 @@ class dumblogic:
         elif pieces[0] == 'STATUS': # Could be idle, could be burning
             (type,version,status,hashes,misc) = self.clients[self.conn2client[conn.fileno()]]
             if self.is_hash(pieces[1]):
-                # We're burning, or done burning (not idle)
+                # We're burning, or done burning
                 # Update our status about its status
                 # If its FAIL, we need to re-queue that ISO
                 if pieces[2] == 'PASS':
@@ -125,16 +125,16 @@ class dumblogic:
                     pass # more statuses (or add another field, substatus or sth)
 
             else: # Second argument isn't a hash
-                if pieces[1] == 'OPEN':
+                if pieces[2] == 'OPEN':
                     # update our status about it being open
                     status = 'OPEN' # this might change
-                elif pieces[1] == 'AVAIL':
+                elif pieces[2] == 'AVAIL':
                     # Tell it to burn something it has!
                     status = 'AVAIL' # this might change
                     misc = '' # When we're avail (new blank CD, we don't have an iso
                     # Remember, we're assuming everyone has all the ISOs
                     # We're also throwing away CDR vs DVD right now
-                    # that'd be pieces[2], and that will get checked when we check
+                    # that'd be pieces[1], and that will get checked when we check
                     # if the machine has the capability of burning (that's a 
                     # good place to check it, when we're checking if that machine has
                     # the proper ISO (even if has a DVD iso, if it only has a CD, 
@@ -144,7 +144,7 @@ class dumblogic:
                         outbuf = outbuf + self.assemble_message(('BURN',temp_hash))
                         status = 'ASKED'
                         misc = temp_hash # Storing this in misc may change
-                elif pieces[1] == 'EMPTY':
+                elif pieces[2] == 'EMPTY':
                     # update our status about it being empty
                     status = 'EMPTY' # this might change
                     misc = '' # When we're empty, we have no iso
