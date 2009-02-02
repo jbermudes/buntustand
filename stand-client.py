@@ -53,6 +53,7 @@ KEYCODE_RENAME = 'r'
 order_cursor = 0
 order_mode = 0
 order_spinner_indices = [0,0,0,0,0,0]
+selected_pkg = 0
 
 packages_cursor = 0
 
@@ -121,6 +122,19 @@ def make_box(scr,y,x,h,w,attr=0): # y,x is top left corner (of border), h,w is e
     scr.addch(y+h+1,x,curses.ACS_LLCORNER | attr)
     scr.addch(y+h+1,x+w+1,curses.ACS_LRCORNER | attr)
 
+def make_ugly_box(scr,y,x,h,w,attr=0): # y,x is top left corner (of border), h,w is empty space inside
+    #for i in range(y+1,y+h+1):
+        #scr.addch(i,x,'|', attr)
+        #scr.addch(i,x+w+1, '|', attr)
+
+    for i in range(x+1,x+w+1):
+        scr.addch(y,i,'=', attr)
+        scr.addch(y+h+1,i,'=', attr)
+
+    #scr.addch(y,x,'/', attr)
+    #scr.addch(y,x+w+1,'\\', attr)
+    #scr.addch(y+h+1,x,'\\', attr)
+    #scr.addch(y+h+1,x+w+1,'/', attr)
 
 def draw_tabs(scr,names,active):
     for i in range(0,65):
@@ -146,6 +160,16 @@ def draw_spinner(scr, y, x, label, value, selected, label_tab=10, value_tab=10):
     scr.addstr(y, x+label_tab+1, value, attr)
     scr.addstr(y, x+label_tab+value_tab, "]", attr)
 
+def draw_button(scr, y, x, label, selected):
+    attr = 0
+    if selected == True:
+        attr = curses.A_REVERSE
+    
+    scr.addstr(y, x, " " * (len(label)+3), attr)
+    scr.addstr(y, x, "[", attr)
+    scr.addstr(y, x+2, label, attr)
+    scr.addstr(y, x+3+len(label), "]", attr)
+
 def draw_scrollpane(scr, y, x, h, w, title, data, sel_index):
     start_row = 0
     if sel_index > h - 1:
@@ -156,7 +180,7 @@ def draw_scrollpane(scr, y, x, h, w, title, data, sel_index):
         end_row = len(data)
     
     attr = 0
-    make_box(scr, y, x, h, w)
+    make_ugly_box(scr, y, x, h, w)
     scr.addstr(y, (x + w) / 2 - len(title) / 2, " " + title + " ")
     for row in range(start_row, end_row):
         i = row % len(data)
@@ -176,18 +200,16 @@ def draw_scrollpane(scr, y, x, h, w, title, data, sel_index):
         scr.addch(y+h, x+w, curses.ACS_DARROW)
 
 # The Orders Tab
-def draw_menu_order(scr): # Do the static page stuff for Order page
+def draw_menu_order(scr):
     
     scr.erase()
     y_max,x_max = scr.getmaxyx()
-    selected_pkg = order_cursor
-    if order_mode == 1:
-        selected_pkg = 0
-    draw_scrollpane(scr, 2, 1, 5, 60, "CD Packages", packages, selected_pkg)
-    #make_box(tabs[0],2,1,y_max-2-2-9,x_max-4)
-    #scr.addstr(y_max,1,"X:" + str(x_max) + "Y:" + str(y_max))
-    
-    #scr.addstr(y_max//2,x_max//2,"*")
+    pkg_id = 0
+    if order_mode == 0:
+        pkg_id = order_cursor
+    else:
+        pkg_id = selected_pkg
+    draw_scrollpane(scr, 2, 1, 5, 60, "CD Packages", packages, pkg_id)
 
     # Single CD stuff
     indent = 9
@@ -197,17 +219,17 @@ def draw_menu_order(scr): # Do the static page stuff for Order page
         scr.addstr(9,x_max/2-7," Single CD")
         
         # Flavor
-        draw_spinner(scr, row, indent, "Flavor:", flavors[order_spinner_indices[order_cursor] % len(flavors)], (order_cursor == 0))
+        draw_spinner(scr, row, indent, "Flavor:", flavors[order_spinner_indices[0] % len(flavors)], (order_cursor == 0))
         #scr.addstr(3,indent+11,"E",curses.color_pair(COLOR_E))
         
         # Version
-        draw_spinner(scr, row+1, indent, "Version:", "8.10", (order_cursor == 1))
+        draw_spinner(scr, row+1, indent, "Version:", versions[order_spinner_indices[1] % len(versions)], (order_cursor == 1))
         
         # Architecture
-        draw_spinner(scr, row+2, indent, "Arch:", "i386", (order_cursor == 2))
+        draw_spinner(scr, row+2, indent, "Arch:", architectures[order_spinner_indices[2] % len(architectures)], (order_cursor == 2))
         
         # Type
-        draw_spinner(scr, row+3, indent, "Type:", "Alternate", (order_cursor == 3))
+        draw_spinner(scr, row+3, indent, "Type:", types[order_spinner_indices[3] % len(types)], (order_cursor == 3))
         
         # Quantity
         draw_spinner(scr, row, indent+27, "Quantity:", "1", (order_cursor == 4), 11, 5)
@@ -216,15 +238,15 @@ def draw_menu_order(scr): # Do the static page stuff for Order page
         draw_spinner(scr, row+1, indent+27, "Priority:", "1", (order_cursor == 5), 11, 5)
 
     # Submits, Clear
-    scr.addstr(y_max-2,10,"[ Submit Order ]")
-    scr.addstr(y_max-2,35,"[ Reset ]")
+    draw_button(scr, y_max-2, 10, "Submit Order", (order_mode == 2 and order_cursor % 2 == 0))
+    draw_button(scr, y_max-2, 35, "Reset", (order_mode == 2 and order_cursor % 2 == 1))
     
     scr.addstr(14, 4, str(order_cursor))
 
 # The Packages Tab
 def draw_menu_packages(scr):
     scr.erase()
-    scr.addstr(3,2,"This tab is for modifying packages")
+    scr.addstr(3,2,"This tab lets you add/modify/delete packages")
 
 # The Clients Tab
 def draw_menu_clients(scr):
@@ -248,7 +270,7 @@ def draw_menu_clients(scr):
         posx = (col * width)
         
         attr = curses.color_pair(COLOR_X) | curses.A_BOLD if i == selected_client else 0
-        make_box(tabs[2],posy,posx,2,30, attr)
+        make_ugly_box(tabs[2],posy,posx,2,30, attr)
         scr.addstr(posy, posx+2, client_names[i], attr)
         scr.addstr(posy, posx+15, client_ip[i], attr)
         scr.addstr(posy+1, posx+1, "Job: " + client_jobs[i])
@@ -270,7 +292,7 @@ def draw_menu_queue(scr, update=0):
     
     y_max,x_max = scr.getmaxyx()
     offset = 2
-    make_box(tabs[3],2,1,y_max-2-2-3,x_max-4)
+    make_ugly_box(tabs[3],2,1,y_max-2-2-3,x_max-4)
     scr.addstr(2,2,"# ")
     scr.addstr(2,6," Distro ")
     scr.addstr(2,18," Ver. ")
@@ -454,7 +476,7 @@ def get_clients(): # Dummy Client Population
 
 def update_menu_order():
     # order modes: pkg, custom, submit
-    global order_cursor, keysdown, order_spinner_indices, order_mode
+    global order_cursor, keysdown, order_spinner_indices, order_mode, selected_pkg
     
     if keysdown[KEY_DOWN]:
         order_cursor += 1
@@ -467,10 +489,14 @@ def update_menu_order():
         if order_mode == 1:
             order_spinner_indices[order_cursor] += 1
     elif keysdown[KEY_CONFIRM]:
-        pkgid = order_cursor
-        if pkgid == 0:
-            order_mode = 1
-        else:
+        if order_mode == 0:
+            pkgid = order_cursor
+            selected_pkg = pkgid
+            if pkgid == 0:
+                order_mode = 1
+            else:
+                order_mode = 2
+        elif order_mode == 1:
             order_mode = 2
     
     
@@ -512,6 +538,7 @@ def handle_input(scr):
             code = 255 * code + ch # Add them (16 bits)
             key = key + curses.keyname(ch) # concat
     
+    #sp = 32 tab = 9
     if key == 'q': # quit!
         is_running = False
     elif key == '^[1': # alt-1
@@ -565,8 +592,8 @@ def main(stdscr):
 
     stdscr.bkgd('*', curses.A_REVERSE )
     win_sidebar = curses.newwin(21,15,0,0)
-    # Set up sidebar (static stuff)
-    win_sidebar.border(' ',curses.ACS_VLINE,' ',' ',' ',curses.ACS_VLINE,' ',curses.ACS_VLINE) # Righthand Line
+    # Set up sidebar (static stuff) UGLY CHANGE!!!!!!!!!!!!! - JB
+    win_sidebar.border(' ','|',' ',' ',' ',curses.ACS_VLINE,' ',curses.ACS_VLINE) # Righthand Line
     win_sidebar.addstr(0,0,"    Queue     ", curses.A_UNDERLINE)
     win_sidebar.addstr(1,3,"F V A T P")
     for i in range(1,10):
