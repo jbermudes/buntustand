@@ -49,12 +49,19 @@ class dumblogic:
             return True
         return False
 
+    def image_info(self,hash):
+        # This is just hard-coded right now, obviously it needs to look up appropriate stuff
+        # Returns a tuple of the image hash, filename, and the description.  If we want to support tabs in the description,
+        # we need to modify the server code slightly (for an empty line in the description, use '\r\n \r\n')
+        return ('38e3f4d0774a143bd24f1f2e42e80d63','ubuntu-8.04.1-desktop-i386.iso',"Ubuntu 8.04 (Hardy Heron) 32bit Desktop Image\r\n \r\nThis image is for the most common computers out there.  If you're in doubt, get this image.")
+
 
     def __init__(self):
-        self.burn_queue = [] # Priority queue of what we want to burn
+        self.burn_queue = [] # Priority queue of what we want to burn format:: (priority, ID, hash)
         self.available_isos = Set() # ISO listing, along with data about ISOs
         self.conn2client = dict() # Dictionary of connection filenos to IDs (temporary)
         self.clients = dict() # Dictionary of clients and their associated data (persistent)
+        self.unique_item_id = 0  # This is unique and incremented for each queue item
         
         # A client is a tuple of the following format:
         # clients[[ID]] = ([type],version,[status],(hashes),misc)
@@ -143,7 +150,7 @@ class dumblogic:
                     # the proper ISO (even if has a DVD iso, if it only has a CD, 
                     # it can't get sent the DVD command)
                     if len(self.burn_queue) > 0: # has elements
-                        (temp_priority,temp_hash) = heapq.heap_pop(self.burn_queue)
+                        (temp_priority, temp_hash, temp_id) = heapq.heap_pop(self.burn_queue)
                         outbuf = outbuf + self.assemble_message(('BURN',temp_hash))
                         status = 'ASKED'
                         misc = temp_hash # Storing this in misc may change
@@ -153,6 +160,26 @@ class dumblogic:
                     misc = '' # When we're empty, we have no iso
             # Update our knowledge of the burner
             self.clients[self.conn2client[conn.fileno()]] = (type,version,status,hashes,misc)
+
+        elif pieces[0] == 'ASKCAP': # Client asking for CAPAB
+            outbuf = outbuf + 'CAPAB' + self.COM_TERMINATE
+
+        elif pieces[0] == 'WHATIS':
+            if self.is_hash(pieces[1]):
+                outbuf = outbuf + 'INFO' + self.COM_DELIM + self.assemble_message(self.get_info(pieces[1]))
+            else:
+                outbuf = outbuf + 'INFO' + self.COM_DELIM + 'ENOIDEA' + self.COM_TERMINATE
+                # Warn!
+        
+        elif pieces[0] == 'QUEUE':
+            if self.is_hash(pieces[1]): # Valid Hash
+                heapq.heappush(self.burn_queue,(pieces[2],pieces[1],self.unique_item_id))
+                self.unique_item_id += 1
+                outbuf = outbuf + 'QOK' + self.COM_TERMINATE
+            else:
+                # Error, Warn
+                outbuf = outbuf + 'QNO' + self.COM_TERMINATE
+                pass
 
         return (conn,inbuf,outbuf)
 
