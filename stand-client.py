@@ -4,8 +4,11 @@ import curses
 import curses.wrapper
 import curses.panel
 import curses.ascii
+import time
 
 import socket
+
+import ubuntudisc
 
 #import logging
 #LOG_NAME = "command-log"
@@ -50,22 +53,33 @@ KEYCODE_CANCEL = 'CANCEL'
 KEYCODE_EJECT = 'e'
 KEYCODE_RENAME = 'r'
 
+frame_count = 0
+target_time = 0
+
 order_cursor = 0
 order_mode = 0
 order_spinner_indices = [0,0,0,0,0,0]
 selected_pkg = 0
+alert_text = ""
 
 packages_cursor = 0
 
 clients_cursor = 0
+clients_mode = 0
+num_clients = 6
 
 queue_cursor = 0
+queue_mode = 0
 
-flavors = ["Ubuntu", "Kubuntu", "Edubuntu", "Xubuntu"]
-versions = ["8.04.2", "8.10"]
-architectures = ["i386", "AMD64"]
-types = ["Desktop", "Server", "Alternate"]
 packages = ["Custom CD", "Package B", "Package C", "Package D", "Package E", "Package F", "Package G", "Package H"]
+
+
+quantities = range(1, 64)
+
+num_flavors = len(ubuntudisc.FLAVOR_NAMES)
+num_versions = len(ubuntudisc.VERSION_NAMES)
+num_architectures = len(ubuntudisc.ARCHITECTURE_NAMES)
+num_editions = len(ubuntudisc.EDITION_NAMES)
 
 active_tab = 0
 is_running = True
@@ -74,16 +88,20 @@ tabs = []
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setblocking(0) # non-blocking
 
-clients = []
 # clients are a tuple of ID,Name,type,status # type includes hash
+clients = []
+
+# Queue items are tuples of id,UbuntuDisc,priority
 queue = []
-# Queue items are tuples of hash,priority
-# or do we want to do flavor,arch,version,yadda,yadda,priority?
+
+
 
 inbuf = ''
 outbuf = ''
 
+#######################################
 ## Socket Functions
+#######################################
 
 def get_ident(): # Return our client ID
     # Figure out someway to generate
@@ -97,14 +115,30 @@ def is_hash(str):
         return True
     return False
 
-# CD info stuff
+##########################################
+## CD info stuff
+##########################################
 def get_hash_info(hash): # Dummy
     info = [('Ubuntu','8.04.1','AMD64','Desktop'),('Kubuntu','8.10','i386','Alternate'),
             ('Xubuntu','6.06.2','i386','Server'),('Edubuntu','8.04.1','AMD64','Alternate')]
     index = int(hash,16) % len(info)
     return info[index]
 
+def add_cd(distro, version, arch, typ):
+    available
 
+## Client Commands to Server
+def submit_package_order(pkg_id):
+    order = 1
+
+def submit_order(f, v, a, e, q, p):
+    order = 1
+
+def eject_client(id):
+    eject = 1
+
+def rename_client(id, name):
+    n = name
 
 ## Curses Functions
 
@@ -199,6 +233,10 @@ def draw_scrollpane(scr, y, x, h, w, title, data, sel_index):
     if end_row < len(data):
         scr.addch(y+h, x+w, curses.ACS_DARROW)
 
+## ****************************************
+## Tab Draw Functions
+## ****************************************
+
 # The Orders Tab
 def draw_menu_order(scr):
     
@@ -215,48 +253,57 @@ def draw_menu_order(scr):
     indent = 9
     row = 10
     
-    if order_mode == 1:
+    
+    if order_mode == 1 or (order_mode == 2 and selected_pkg == 0) or (order_mode == 3 and selected_pkg == 0):
         scr.addstr(9,x_max/2-7," Single CD")
-        
+
+        m = order_mode == 1        
+
         # Flavor
-        draw_spinner(scr, row, indent, "Flavor:", flavors[order_spinner_indices[0] % len(flavors)], (order_cursor == 0))
+        draw_spinner(scr, row, indent, "Flavor:", ubuntudisc.FLAVOR_NAMES[order_spinner_indices[0] % num_flavors], (m and order_cursor == 0))
         #scr.addstr(3,indent+11,"E",curses.color_pair(COLOR_E))
         
         # Version
-        draw_spinner(scr, row+1, indent, "Version:", versions[order_spinner_indices[1] % len(versions)], (order_cursor == 1))
+        draw_spinner(scr, row+1, indent, "Version:", ubuntudisc.VERSION_NAMES[order_spinner_indices[1] % num_versions], (m and order_cursor == 1))
         
         # Architecture
-        draw_spinner(scr, row+2, indent, "Arch:", architectures[order_spinner_indices[2] % len(architectures)], (order_cursor == 2))
+        draw_spinner(scr, row+2, indent, "Arch:", ubuntudisc.ARCHITECTURE_NAMES[order_spinner_indices[2] % num_architectures], (m and order_cursor == 2))
         
         # Type
-        draw_spinner(scr, row+3, indent, "Type:", types[order_spinner_indices[3] % len(types)], (order_cursor == 3))
+        draw_spinner(scr, row+3, indent, "Edition:", ubuntudisc.EDITION_NAMES[order_spinner_indices[3] % num_editions], (m and order_cursor == 3))
         
         # Quantity
-        draw_spinner(scr, row, indent+27, "Quantity:", "1", (order_cursor == 4), 11, 5)
+        draw_spinner(scr, row, indent+27, "Quantity:", str(quantities[order_spinner_indices[4] % len(quantities)]), (m and order_cursor == 4), 11, 5)
         
         # Priority
-        draw_spinner(scr, row+1, indent+27, "Priority:", "1", (order_cursor == 5), 11, 5)
+        draw_spinner(scr, row+1, indent+27, "Priority:", "1", (m and order_cursor == 5), 11, 5)
 
     # Submits, Clear
-    draw_button(scr, y_max-2, 10, "Submit Order", (order_mode == 2 and order_cursor % 2 == 0))
-    draw_button(scr, y_max-2, 35, "Reset", (order_mode == 2 and order_cursor % 2 == 1))
+    draw_button(scr, y_max-2, 10, "Reset", (order_mode == 2 and order_cursor % 2 == 0))
+    draw_button(scr, y_max-2, 35, "Submit Order", (order_mode == 2 and order_cursor % 2 == 1))
     
     scr.addstr(14, 4, str(order_cursor))
+    
+    if len(alert_text) > 0:
+        scr.addstr(y_max-1, 1, (" " * (x_max-3)), curses.A_REVERSE)
+        scr.addstr(y_max-1, 1, alert_text, curses.A_REVERSE)
 
 # The Packages Tab
 def draw_menu_packages(scr):
     scr.erase()
-    scr.addstr(3,2,"This tab lets you add/modify/delete packages")
+    y_max,x_max = scr.getmaxyx()
+    draw_scrollpane(scr, 2, 1, 10, 60, "CD Packages", ["yay"], 0)
+    
+    scr.addstr(12, 3, "")
 
 # The Clients Tab
 def draw_menu_clients(scr):
     scr.erase()
-    num_clients = 6
     client_names = ["JESS", "FLANNEL", "NHAINES", "YASUMOTO", "LIKETOTA", ""]
     client_ip = ["X.X.128.87", "X.X.128.92", "X.X.128.33", "X.X.128.103", "X.X.128.79", ""]
     client_jobs = ["Ubuntu 8.10 i386 Dsk.", "Kubuntu 8.10 i386 Dsk.", "Edubuntu 8.10 i386 Srv.", "", "Ubuntu 8.10 i386 Alt.", ""]
     client_status = ["BURNING (87%)", "TEST PASSED", "VERIFYING", "AWAITING MEDIA", "BURNING (8%)", "NO CLIENT"]
-    selected_client = 0
+    selected_client = clients_cursor % num_clients
     
     y_max,x_max = scr.getmaxyx()
     width = 32
@@ -288,38 +335,22 @@ def draw_menu_queue(scr, update=0):
     architectures = ["i386", "i386", "PPC", "AMD", "i386"]
     types = ["Alt.", "Dsk.", "Srv.", "Dsk.", "Dsk"]
     priorities = ["5", "7", "10", "11", "30"]
-    selected_item = 0
+    selected_item = queue_cursor % queue_len
     
     y_max,x_max = scr.getmaxyx()
     offset = 2
-    make_ugly_box(tabs[3],2,1,y_max-2-2-3,x_max-4)
+    draw_scrollpane(scr, 2, 1, 10, 60, "", ["Ubuntu"], selected_item)
     scr.addstr(2,2,"# ")
     scr.addstr(2,6," Distro ")
     scr.addstr(2,18," Ver. ")
     scr.addstr(2,26," Arch. ")
     scr.addstr(2,35," Type ")
     scr.addstr(2,44," Pri: ")
-    if update == 1:
-        scr.addstr(2,44," Jess: ")
     
-    for i in range(queue_len):
-        
-        if i == selected_item:
-            attr = curses.A_REVERSE
-            scr.addstr(i+3, offset, " " * 60, attr)
-        else:
-            attr = 0
-        
-        scr.addstr(i+3, offset, str(i+1)+".", attr)
-        scr.addstr(i+3, offset+5, distros[i], attr)
-        scr.addstr(i+3, offset+17, versions[i], attr)
-        scr.addstr(i+3, offset+25, architectures[i], attr)
-        scr.addstr(i+3, offset+34, types[i], attr)
-        scr.addstr(i+3, offset+43, priorities[i], attr)
     
-    scr.addstr(y_max-3,15," --- Displaying 1-5 of 5 ---")
+    #scr.addstr(y_max-3,15," --- Displaying 1-5 of 5 ---")
     
-    scr.addstr(y_max-1,2,"J/K: Up/Down   DEL: Remove   +/-: Priority")
+    scr.addstr(y_max-1,2,"J/K: Up/Down   DEL: Remove")
 
 ## "Active" displays (client status, queue stuffs)
 
@@ -477,6 +508,14 @@ def get_clients(): # Dummy Client Population
 def update_menu_order():
     # order modes: pkg, custom, submit
     global order_cursor, keysdown, order_spinner_indices, order_mode, selected_pkg
+    global alert_text, target_time
+    
+    # handle mode reset
+    if order_mode == 3 and time.time() >= target_time:
+        curses.flash()
+        order_cursor = 0
+        order_mode = 0
+        alert_text = ""
     
     if keysdown[KEY_DOWN]:
         order_cursor += 1
@@ -489,17 +528,43 @@ def update_menu_order():
         if order_mode == 1:
             order_spinner_indices[order_cursor] += 1
     elif keysdown[KEY_CONFIRM]:
-        if order_mode == 0:
+        if order_mode == 0: # Package was selected
             pkgid = order_cursor
             selected_pkg = pkgid
             if pkgid == 0:
                 order_mode = 1
             else:
                 order_mode = 2
-        elif order_mode == 1:
+                order_cursor = 0
+        elif order_mode == 1: # Custom CD configured
             order_mode = 2
+            order_cursor = 0
+        elif order_mode == 2: # Decision made
+            if order_cursor == 0: # Reset Pressed
+                order_mode = 0
+                order_cursor = 0
+                selected_pkg = 0
+                alert_text = ""
+            elif order_cursor == 1: # Submit pressed
+                # make the correct order
+                if selected_pkg == 0: # custom cd
+                    f = order_spinner_indices[0] % num_flavors
+                    v = order_spinner_indices[1] % num_versions
+                    a = order_spinner_indices[2] % num_architectures
+                    e = order_spinner_indices[3] % num_editions
+                    q = 1
+                    p = 50
+                    submit_order(f,v,a,e,q,p)
+                    alert_text = "Custom CD Order Submitted!"
+                else:
+                    submit_package_order(selected_pkg)
+                    alert_text = "Package Order Submitted!"
+                
+                order_mode = 3
+                target_time = time.time() + 2      
+            
     
-    
+    # handle cursor wrap-around logic and other misc. stuff
     if order_mode == 0:
         if order_cursor > len(packages) - 1:
             order_cursor = len(packages) - 1
@@ -507,6 +572,36 @@ def update_menu_order():
             order_cursor = 0
     elif order_mode == 1:
         order_cursor %= 6
+    elif order_mode == 2:
+        order_cursor %= 2
+
+def update_menu_packages():
+    global packages_cursor, keysdown
+    if keysdown[KEY_DOWN]:
+        packages_cursor += 1
+    elif keysdown[KEY_UP]:
+        packages_cursor -= 1
+
+def update_menu_clients():
+    global clients_cursor, keysdown
+    
+    if keysdown[KEY_DOWN]:
+        clients_cursor += 1
+    elif keysdown[KEY_UP]:
+        clients_cursor -= 1 
+    elif keysdown[KEY_EJECT]:
+        eject_client(clients_cursor % len(clients))
+    elif keysdown[KEY_RENAME]:
+        rename_client(clients_cursor % len(clients), "")
+                 
+
+def update_menu_queue():
+    global queue_cursor, keysdown
+    
+    if keysdown[KEY_DOWN]:
+        queue_cursor += 1
+    elif keysdown[KEY_UP]:
+        queue_cursor -= 1
 
 def update_tab(i):
     if i == 0:
@@ -517,9 +612,11 @@ def update_tab(i):
         draw_menu_packages(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
     elif i == 2:
+        update_menu_clients()
         draw_menu_clients(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
     elif i == 3:
+        update_menu_queue()
         draw_menu_queue(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
 
@@ -570,6 +667,11 @@ def handle_input(scr):
         keysdown[KEY_CANCEL] = 1
     elif code == 330: # Del key
         keysdown[KEY_DELETE] = 1
+    elif key == 'e': # Eject key
+        keysdown[KEY_EJECT] = 1
+    elif key == 'r': # Rename key
+        keysdown[KEY_RENAME] = 1
+    
     else:
         scr.addstr(22, 3, str(code))
         curses.flash() # Flash on non-mapped key
@@ -627,11 +729,13 @@ def main(stdscr):
     # Dummy stuff
     get_queue()
     get_clients()
+    
 
     global active_tab
     global is_running
     global keysdown
     global blankkeys
+    global frame_count
     keysdown = blankkeys
     active_tab = 0
     stale_queue = True
@@ -663,6 +767,7 @@ def main(stdscr):
         
         #clear keys
         clear_keys()
+        frame_count += 1
 
 
 
