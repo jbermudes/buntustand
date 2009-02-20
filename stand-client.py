@@ -90,6 +90,7 @@ active_tab = 0
 is_running = True
 tabnames = ("Order","Packages","Clients","Queue","")
 tabs = []
+
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setblocking(0) # non-blocking
 
@@ -122,7 +123,7 @@ def get_ident(): # Return our client ID
     # Figure out someway to generate
     # Maybe md5 of MAC address and /dev/sdX or something?
     # Persistence only matters for burners, so we can use 
-    # pseudo-random for command/display
+   # pseudo-random for command/display
     return '033312ebed6b1e5c5a691fd6e24f7535'
 
 
@@ -774,6 +775,16 @@ def main(stdscr):
     curses.init_pair(5,curses.COLOR_BLACK,curses.COLOR_GREEN) # Pass
     curses.init_pair(6,curses.COLOR_BLACK,curses.COLOR_RED) # Fail (This could be reverse edubuntu)
 
+    while (1):
+        try:
+            server.connect((HOST, PORT))
+            break
+        except socket.error:
+            # Since non-blocking, if it doesn't work immediately, EINPROGRESS
+            # Subsequent calls (while in progress) give EALREADY
+            # There are other errors (actual errors), we may want to check them
+            pass
+
     stdscr.bkgd('*', curses.A_REVERSE )
     win_sidebar = curses.newwin(21,15,0,0)
     # Set up sidebar (static stuff) UGLY CHANGE!!!!!!!!!!!!! - JB
@@ -834,6 +845,25 @@ def main(stdscr):
         tabs[active_tab].noutrefresh()
         curses.doupdate()
         
+
+        # begin socket stuff
+        try: #try RX
+            if len(server.recv(1024,socket.MSG_PEEK)) == 0:
+                server.close() # Bad connection, We likely want to reconnect
+                continue
+            # otherwise: do stuff with inbuf
+            inbuf = inbuf + server.recv(1024)
+        except socket.error: # Excepion (no data RX, but connection still there)
+            pass
+
+        if len(outbuf) > 0: # if we have stuff to send
+            try: # try TX
+                sent = server.send(outbuf)
+                outbuf = outbuf[sent:]
+            except socket.error: # We only want to catch SIGPIPE (server disconnect)
+                pass
+        # done with socket stuff
+
 
         # Handle Communication
         if stale_queue:
