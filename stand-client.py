@@ -138,6 +138,9 @@ def get_job_and_status(index):
     
     return job, status
 
+def rename_client(i, name):
+    clients[i] = (clients[i][0], name, clients[i][2], clients[i][3])
+
 ##########################################
 ## CD info stuff
 ##########################################
@@ -160,8 +163,6 @@ def submit_order(f, v, a, e, q, p):
 def eject_client(id):
     eject = 1
 
-def rename_client(id, name):
-    n = name
 
 #################################################
 ## Curses Functions
@@ -448,7 +449,7 @@ def output_client(scr,index,client):
         hashcode,status = client[3].split(COM_DELIM) # hash,status
         
     if ubuntudisc.is_hash(hashcode):
-        item = ['Ubuntu', '7.10', 'i', 'D']
+        item = ['Ubuntu', '7.10', 'i', 'D'] #eventually this will come from ubuntudisc
         if item[0] == 'Ubuntu':
            attr = curses.color_pair(COLOR_U)
         elif item[0] == 'Kubuntu':
