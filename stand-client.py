@@ -125,10 +125,6 @@ def get_ident(): # Return our client ID
     # pseudo-random for command/display
     return '033312ebed6b1e5c5a691fd6e24f7535'
 
-def is_hash(str):
-    if len(str) > 10: # This can be done better, obviously
-        return True
-    return False
 
 ########################################
 ## Burner logic
@@ -154,6 +150,15 @@ def get_hash_info(hash): # Dummy
             ('Xubuntu','6.06.2','i386','Server'),('Edubuntu','8.04.1','AMD64','Alternate')]
     index = int(hash,16) % len(info)
     return info[index]
+
+def is_hash(str):
+    if len(str) == 32:
+        for ch in str:
+            if ch not in "0123456789abcdef":
+                return False
+        return True
+    return False
+
 
 def add_cd(distro, version, arch, typ):
     available
