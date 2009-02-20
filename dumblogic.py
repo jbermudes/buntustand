@@ -57,7 +57,7 @@ class dumblogic:
 
 
     def __init__(self):
-        self.burn_queue = [] # Priority queue of what we want to burn format:: (priority, ID, hash)
+        self.burn_queue = [] # Priority queue of what we want to burn format:: (priority, hash, ID)
         self.available_isos = Set() # ISO listing, along with data about ISOs
         self.conn2client = dict() # Dictionary of connection filenos to IDs (temporary)
         self.clients = dict() # Dictionary of clients and their associated data (persistent)
@@ -180,6 +180,25 @@ class dumblogic:
                 # Error, Warn
                 outbuf = outbuf + 'QNO' + self.COM_TERMINATE
                 pass
+
+        elif pieces[0] == 'QREPORT':
+            outbuf = outbuf + 'QLIST' + self.COM_DELIM # should probably not have tab if null
+            for item in sorted(self.burn_queue):
+                outbuf = outbuf + self.COM_DELIM.join(reverse(item)) + self.COM_TERMINATE
+                # Item is Pri, Hash, ID, we send I H P
+            outbuf = outbuf + self.COM_TERMINATE # End
+            if outbuf[-4:-2] != self.COM_TERMINATE: # only one \r\n (perhaps null)
+                outbuf = outbuf + self.COM_TERMINATE
+
+        elif pieces[0] == 'SREPORT':
+            outbuf = outbuf + 'SLIST' + self.COM_DELIM # should probably not have tab if null
+            for con in sorted(keys(self.conn2client)):
+                outbuf = outbuf + self.clients[self.conn2client[con]][3] # 3 is status, already contains tab
+                outbuf = outbuf + self.COM_TERMINATE
+            outbuf = outbuf + self.COM_TERMINATE # End
+            if outbuf[-4:-2] != self.COM_TERMINATE: # only one \r\n (perhaps null)
+                outbuf = outbuf + self.COM_TERMINATE
+
 
         return (conn,inbuf,outbuf)
 
