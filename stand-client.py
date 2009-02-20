@@ -106,8 +106,11 @@ clients = [('033312ebed6b1e5c5a691fd6e24f7532','Client0','CDR','ea6d44667ea3fd43
            ('033312ebed6b1e5c5a691fd6e24f7534','Client2','CDR','ea6d44667ea3fd435954d6e1f0e89122\t0')
             ]
 
-# Queue items are tuples of id,UbuntuDisc,priority
-queue = []
+# Queue items are tuples of id,hash,priority
+queue = [(0, "ea6d44667ea3fd435954d6e1f0e89122", 50),
+         (1, "ea6d44667ea3fd435954d6e1f0e89122", 23),
+         (2, "ea6d44667ea3fd435954d6e1f0e89122", 75)
+        ]
 
 
 
@@ -191,6 +194,21 @@ def delete_package(i):
         del packages[i]
     else:
         curses.flash()
+
+########################################
+## Queue stuff
+########################################
+
+def get_printable_queue():
+    printable = []
+    for item in queue:
+        printable.append( ubuntudisc.tuple2String(ubuntudisc.hash2Tuple(item[1])) + " " + str(item[2]) )
+    
+    return printable
+
+def delete_from_queue(i):
+    if len(queue) > 0:
+        del queue[i]
 
 #################################################
 ## Curses Functions
@@ -395,21 +413,21 @@ def draw_menu_clients(scr):
     
     #scr.addstr(14,3,"Rename: ")
     
-    scr.addstr(y_max-1,2,"J/K: Up/Down   H/L: Left/Right   E: Eject    R: Rename")
+    scr.addstr(y_max-1,2,"J/K: Up/Down     E: Eject     R: Rename")
 
 def draw_menu_queue(scr, update=0):
     scr.erase()
-    queue_len = 5
-    distros = ["Edubuntu", "Ubuntu", "Kubuntu", "Xubuntu", "Ubuntu"]
-    versions = ["8.10", "8.04", "7.10", "8.10", "8.10"]
-    architectures = ["i386", "i386", "PPC", "AMD", "i386"]
-    types = ["Alt.", "Dsk.", "Srv.", "Dsk.", "Dsk"]
-    priorities = ["5", "7", "10", "11", "30"]
-    selected_item = queue_cursor % queue_len
+    
+    queue_len = len(queue)
+    
+    if queue_len > 0:
+        selected_item = queue_cursor % queue_len
+    else:
+        selected_item = 0
     
     y_max,x_max = scr.getmaxyx()
     offset = 2
-    draw_scrollpane(scr, 2, 1, 10, 60, "", ["Ubuntu"], selected_item)
+    draw_scrollpane(scr, 2, 1, 10, 60, "", get_printable_queue(), selected_item)
     scr.addstr(2,2,"# ")
     scr.addstr(2,6," Distro ")
     scr.addstr(2,18," Ver. ")
@@ -427,8 +445,8 @@ def draw_menu_queue(scr, update=0):
 def update_display_queue(scr):
     # Loop through local copy of queue and call print_Q_item
     for index,item in enumerate(queue):
-        hash,pri = item
-        output_Q_item(scr,index,get_hash_info(hash),pri)
+        i,hashcode,pri = item
+        output_Q_item(scr,index,get_hash_info(hashcode),pri)
 
 def output_Q_item(scr,index,item,pri):
     # Prints item on line index of scr (index is queue index, not window line)
@@ -461,7 +479,7 @@ def output_Q_item(scr,index,item,pri):
     scr.addstr(index+2,5,ver)
     scr.addstr(index+2,7,item[2][0:1])
     scr.addstr(index+2,9,item[3][0:1])
-    scr.addstr(index+2,11,pri)
+    scr.addstr(index+2,11,str(pri))
 
 
 def update_display_clients(scr):
@@ -681,6 +699,9 @@ def update_menu_queue(scr):
         queue_cursor += 1
     elif keysdown[KEY_UP]:
         queue_cursor -= 1
+    elif keysdown[KEY_DELETE]:
+        if len(queue) > 0:
+            delete_from_queue(queue_cursor % len(queue))
 
 def update_tab(i):
     if i == 0:
@@ -809,7 +830,7 @@ def main(stdscr):
     draw_menu_queue(tabs[3])
 
     # Dummy stuff
-    get_queue()
+    #get_queue()
     #get_clients()
     
 
