@@ -88,8 +88,18 @@ tabs = []
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setblocking(0) # non-blocking
 
-# clients are a tuple of ID,Name,type,status # type includes hash
-clients = []
+client_names = ["JESS", "FLANNEL", "NHAINES", "YASUMOTO", "LIKETOTA", ""]
+client_ip = ["X.X.128.87", "X.X.128.92", "X.X.128.33", "X.X.128.103", "X.X.128.79", ""]
+client_jobs = ["Ubuntu 8.10 i386 Dsk.", "Kubuntu 8.10 i386 Dsk.", "Edubuntu 8.10 i386 Srv.", "", "Ubuntu 8.10 i386 Alt.", ""]
+client_status = ["BURNING (87%)", "TEST PASSED", "VERIFYING", "AWAITING MEDIA", "BURNING (8%)", "NO CLIENT"]
+    
+
+# clients are a tuple of (ID,Name,type,status). status is hash+DELIM+msg
+#('033312ebed6b1e5c5a691fd6e24f7532','Client0','CDR','1231231231231231231234\t0')
+clients = [('033312ebed6b1e5c5a691fd6e24f7532','Client0','CDR','ea6d44667ea3fd435954d6e1f0e89122\t0'),
+           ('033312ebed6b1e5c5a691fd6e24f7533','Client1','CDR','ea6d44667ea3fd435954d6e1f0e89122\t0'),
+           ('033312ebed6b1e5c5a691fd6e24f7534','Client2','CDR','ea6d44667ea3fd435954d6e1f0e89122\t0')
+            ]
 
 # Queue items are tuples of id,UbuntuDisc,priority
 queue = []
@@ -114,6 +124,19 @@ def is_hash(str):
     if len(str) > 10: # This can be done better, obviously
         return True
     return False
+
+########################################
+## Burner logic
+########################################
+
+def get_job_and_status(index):
+    client = clients[index]
+    
+    hsh,status = client[3].split(COM_DELIM) # hash,status
+    tup = ubuntudisc.hash2Tuple(hsh)
+    job = ubuntudisc.tuple2String(tup)
+    
+    return job, status
 
 ##########################################
 ## CD info stuff
@@ -140,7 +163,24 @@ def eject_client(id):
 def rename_client(id, name):
     n = name
 
+#################################################
 ## Curses Functions
+#################################################
+
+def get_console_string(scr, msg="? ", row=1, col=1, maxlen=0):
+    curses.echo()
+    
+    scr.addstr(row, col, msg)
+    offset = len(msg)
+    if maxlen > 0:
+        scr.addstr(row, col+offset, "_"*maxlen)
+    string = scr.getstr(row, col+offset)
+    curses.noecho()
+    
+    if maxlen > 0:
+        string = string[0:maxlen]
+    
+    return string
 
 def make_box(scr,y,x,h,w,attr=0): # y,x is top left corner (of border), h,w is empty space inside
     for i in range(y+1,y+h+1):
@@ -294,36 +334,34 @@ def draw_menu_packages(scr):
     y_max,x_max = scr.getmaxyx()
     draw_scrollpane(scr, 2, 1, 10, 60, "CD Packages", ["yay"], 0)
     
-    scr.addstr(12, 3, "")
+    scr.addstr(14, 3, "[I]nsert New     [D]elete")
 
 # The Clients Tab
 def draw_menu_clients(scr):
     scr.erase()
-    client_names = ["JESS", "FLANNEL", "NHAINES", "YASUMOTO", "LIKETOTA", ""]
-    client_ip = ["X.X.128.87", "X.X.128.92", "X.X.128.33", "X.X.128.103", "X.X.128.79", ""]
-    client_jobs = ["Ubuntu 8.10 i386 Dsk.", "Kubuntu 8.10 i386 Dsk.", "Edubuntu 8.10 i386 Srv.", "", "Ubuntu 8.10 i386 Alt.", ""]
-    client_status = ["BURNING (87%)", "TEST PASSED", "VERIFYING", "AWAITING MEDIA", "BURNING (8%)", "NO CLIENT"]
-    selected_client = clients_cursor % num_clients
+    selected_client = clients_cursor % len(clients)
     
     y_max,x_max = scr.getmaxyx()
     width = 32
     height = 4
     
-    
-    for i in range(num_clients):
+    # clients are a tuple of (ID,Name,type,status). status is hash+DELIM+msg
+    for i in range(len(clients)):
+        cl = clients[i]
         row = i / 2
         col = 0 if i % 2 == 0 else 1
         posy = (row * height)+2
         posx = (col * width)
+        job,status = get_job_and_status(i) # hash,status
         
         attr = curses.color_pair(COLOR_X) | curses.A_BOLD if i == selected_client else 0
         make_ugly_box(tabs[2],posy,posx,2,30, attr)
-        scr.addstr(posy, posx+2, client_names[i], attr)
-        scr.addstr(posy, posx+15, client_ip[i], attr)
-        scr.addstr(posy+1, posx+1, "Job: " + client_jobs[i])
-        scr.addstr(posy+2, posx+1, "Status: " + client_status[i])
+        scr.addstr(posy, posx+2, cl[1], attr) # name
+        scr.addstr(posy, posx+15, cl[0], attr) # ID...IP?
+        scr.addstr(posy+1, posx+1, "Job: " + job)
+        scr.addstr(posy+2, posx+1, "Status: " + status)
     
-    scr.addstr(y_max-3,15," --- Displaying 1-6 of 6 ---")
+    #scr.addstr(14,3,"Rename: ")
     
     scr.addstr(y_max-1,2,"J/K: Up/Down   H/L: Left/Right   E: Eject    R: Rename")
 
@@ -404,12 +442,13 @@ def update_display_clients(scr):
 def output_client(scr,index,client):
 #   logging.debug('output: ' + client[3])
     if client[3].count('\t') < 1: # Things without a tab, I don't think anything still does
-        hash = 'x'
+        hashcode = 'x'
         status = client[3]
     else:
-        hash,status = client[3].split(COM_DELIM) # hash,status
-    if is_hash(hash):
-        item = get_hash_info(hash) 
+        hashcode,status = client[3].split(COM_DELIM) # hash,status
+        
+    if ubuntudisc.is_hash(hashcode):
+        item = ['Ubuntu', '7.10', 'i', 'D']
         if item[0] == 'Ubuntu':
            attr = curses.color_pair(COLOR_U)
         elif item[0] == 'Kubuntu':
@@ -505,7 +544,7 @@ def get_clients(): # Dummy Client Population
     clients.append(('033312ebed6b1e5c5a691fd6e24f7532','Client4','CDR','1231231231231231236\tPASS'))
     clients.append(('033312ebed6b1e5c5a691fd6e24f7535','Client5','CDR','1231231231231231230\tFAIL'))
 
-def update_menu_order():
+def update_menu_order(scr):
     # order modes: pkg, custom, submit
     global order_cursor, keysdown, order_spinner_indices, order_mode, selected_pkg
     global alert_text, target_time
@@ -575,14 +614,14 @@ def update_menu_order():
     elif order_mode == 2:
         order_cursor %= 2
 
-def update_menu_packages():
+def update_menu_packages(scr):
     global packages_cursor, keysdown
     if keysdown[KEY_DOWN]:
         packages_cursor += 1
     elif keysdown[KEY_UP]:
         packages_cursor -= 1
 
-def update_menu_clients():
+def update_menu_clients(scr):
     global clients_cursor, keysdown
     
     if keysdown[KEY_DOWN]:
@@ -592,10 +631,11 @@ def update_menu_clients():
     elif keysdown[KEY_EJECT]:
         eject_client(clients_cursor % len(clients))
     elif keysdown[KEY_RENAME]:
-        rename_client(clients_cursor % len(clients), "")
+        newname = get_console_string(scr, "Rename: ", 14, 12, 8)
+        rename_client(clients_cursor % len(clients), newname)
                  
 
-def update_menu_queue():
+def update_menu_queue(scr):
     global queue_cursor, keysdown
     
     if keysdown[KEY_DOWN]:
@@ -605,18 +645,18 @@ def update_menu_queue():
 
 def update_tab(i):
     if i == 0:
-        update_menu_order()
+        update_menu_order(tabs[i])
         draw_menu_order(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
     elif i == 1:
         draw_menu_packages(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
     elif i == 2:
-        update_menu_clients()
+        update_menu_clients(tabs[i])
         draw_menu_clients(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
     elif i == 3:
-        update_menu_queue()
+        update_menu_queue(tabs[i])
         draw_menu_queue(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
 
@@ -728,7 +768,7 @@ def main(stdscr):
 
     # Dummy stuff
     get_queue()
-    get_clients()
+    #get_clients()
     
 
     global active_tab
