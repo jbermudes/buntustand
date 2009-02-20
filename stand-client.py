@@ -40,9 +40,11 @@ KEY_RENAME = 7
 KEY_DELETE = 8
 KEY_PLUS = 9
 KEY_MINUS = 10
+KEY_INSERT = 11
+KEY_EDIT = 12
 
 keysdown = []
-blankkeys = [0,0,0,0,0,0,0,0,0,0]
+blankkeys = [0,0,0,0,0,0,0,0,0,0,0,0,0]
 
 KEYCODE_UP = 'h'
 KEYCODE_DOWN = 'l'
@@ -52,6 +54,9 @@ KEYCODE_CONFIRM = 'ENTER'
 KEYCODE_CANCEL = 'CANCEL'
 KEYCODE_EJECT = 'e'
 KEYCODE_RENAME = 'r'
+KEYCODE_INSERT = 'i'
+KEYCODE_EDIT = 'e'
+KEYCODE_DELETE = 'd'
 
 frame_count = 0
 target_time = 0
@@ -153,7 +158,9 @@ def get_hash_info(hash): # Dummy
 def add_cd(distro, version, arch, typ):
     available
 
+#####################################
 ## Client Commands to Server
+#####################################
 def submit_package_order(pkg_id):
     order = 1
 
@@ -163,6 +170,22 @@ def submit_order(f, v, a, e, q, p):
 def eject_client(id):
     eject = 1
 
+#####################################
+## Packages stuff
+#####################################
+
+def add_package(name):
+    global packages
+    
+    packages.append(name)
+    
+def delete_package(i):
+    global packages
+    
+    if i > 0:
+        del packages[i]
+    else:
+        curses.flash()
 
 #################################################
 ## Curses Functions
@@ -333,9 +356,12 @@ def draw_menu_order(scr):
 def draw_menu_packages(scr):
     scr.erase()
     y_max,x_max = scr.getmaxyx()
-    draw_scrollpane(scr, 2, 1, 10, 60, "CD Packages", ["yay"], 0)
     
-    scr.addstr(14, 3, "[I]nsert New     [D]elete")
+    selection = packages_cursor % len(packages)
+    
+    draw_scrollpane(scr, 2, 1, 10, 60, "CD Packages", packages, selection)
+    
+    scr.addstr(16, 2, "[I]nsert New     [E]dit     [D]elete")
 
 # The Clients Tab
 def draw_menu_clients(scr):
@@ -358,7 +384,7 @@ def draw_menu_clients(scr):
         attr = curses.color_pair(COLOR_X) | curses.A_BOLD if i == selected_client else 0
         make_ugly_box(tabs[2],posy,posx,2,30, attr)
         scr.addstr(posy, posx+2, cl[1], attr) # name
-        scr.addstr(posy, posx+15, cl[0], attr) # ID...IP?
+        #scr.addstr(posy, posx+15, cl[0], attr) # ID...IP?
         scr.addstr(posy+1, posx+1, "Job: " + job)
         scr.addstr(posy+2, posx+1, "Status: " + status)
     
@@ -617,10 +643,16 @@ def update_menu_order(scr):
 
 def update_menu_packages(scr):
     global packages_cursor, keysdown
+    
     if keysdown[KEY_DOWN]:
         packages_cursor += 1
     elif keysdown[KEY_UP]:
         packages_cursor -= 1
+    elif keysdown[KEY_INSERT]:
+        name = get_console_string(scr, "Title: ", 14, 2, 32)
+        add_package(name)
+    elif keysdown[KEY_DELETE]:
+        delete_package(packages_cursor % len(packages))
 
 def update_menu_clients(scr):
     global clients_cursor, keysdown
@@ -632,7 +664,8 @@ def update_menu_clients(scr):
     elif keysdown[KEY_EJECT]:
         eject_client(clients_cursor % len(clients))
     elif keysdown[KEY_RENAME]:
-        newname = get_console_string(scr, "Rename: ", 14, 12, 8)
+        newname = get_console_string(scr, "Rename: ", 14, 2, 8)
+        
         rename_client(clients_cursor % len(clients), newname)
                  
 
@@ -650,6 +683,7 @@ def update_tab(i):
         draw_menu_order(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
     elif i == 1:
+        update_menu_packages(tabs[i])
         draw_menu_packages(tabs[i])
         draw_tabs(tabs[i],tabnames,i)
     elif i == 2:
@@ -712,6 +746,8 @@ def handle_input(scr):
         keysdown[KEY_EJECT] = 1
     elif key == 'r': # Rename key
         keysdown[KEY_RENAME] = 1
+    elif key == 'i': # Insert key
+        keysdown[KEY_INSERT] = 1
     
     else:
         scr.addstr(22, 3, str(code))
@@ -719,7 +755,7 @@ def handle_input(scr):
 
 def clear_keys():
     global keysdown
-    for i in range(10):
+    for i in range(12):
         keysdown[i] = 0
                     
 ## Main stuffs
