@@ -483,178 +483,179 @@ def printHelp():
 	print
 	exit(os.EX_USAGE)
 
-if len(sys.argv) < 2:
-	printHelp()
-	exit(os.EX_USAGE)
-
-args = sys.argv
-numArgs = len(args)
-
-targetDev = ""
-isoFile = ""
-md5File = ""
-devFlag = False
-preFlag = False
-postFlag = False
-dummyFlag = False
-
-if string.find(args[numArgs-1], "-", 0, 1) < 0:
-	isoFile = args[numArgs-1]
-else:
-	print "ERROR: last argument is not FILE. See --help for more information."
-	exit(os.EX_USAGE)
-
-for i in range(1, numArgs):
-	arg = args[i]
-	
-	if arg == "--dev":
-		devFlag = True
-		if i == numArgs - 1: # if dev is the last flag
-			print "ERROR: No device specified"
-			exit(os.EX_USAGE)
-		else:
-			targetDev = args[i+1]
-	elif arg == "--pre":
-		preFlag = True
-	elif arg == "--post":
-		postFlag = True
-	elif arg == "--dummy":
-		dummyFlag = True
-	elif arg == "--help":
+if __name__ == "__main__":
+	if len(sys.argv) < 2:
 		printHelp()
-	elif arg == "--version":
-		printVersion()
-	elif i < numArgs - 1:
-		print "pywodim: unrecognized option `" + arg + "'"
-		print "See --help for more information."
-			
-if os.path.exists(isoFile) is False:
-	print "ERROR: could not find file " + isoFile
-	exit(1)
+		exit(os.EX_USAGE)
 
-if devFlag is True and os.path.exists(targetDev) is not True:
-	print "ERROR: could not find device " + targetDev
+	args = sys.argv
+	numArgs = len(args)
 
-if targetDev == "":
-	targetDev = getDefaultDevice()
-	
-if targetDev == None:
-	print "ERROR: No CD Burning device detected."
-	exit(1)
+	targetDev = ""
+	isoFile = ""
+	md5File = ""
+	devFlag = False
+	preFlag = False
+	postFlag = False
+	dummyFlag = False
 
-if preFlag is True:
-	md5File = isoFile + ".md5"
-	if os.path.exists(md5File) is not True:
-		print "ERROR: could not find the MD5 file for the ISO specified"
+	if string.find(args[numArgs-1], "-", 0, 1) < 0:
+		isoFile = args[numArgs-1]
+	else:
+		print "ERROR: last argument is not FILE. See --help for more information."
+		exit(os.EX_USAGE)
+
+	for i in range(1, numArgs):
+		arg = args[i]
+		
+		if arg == "--dev":
+			devFlag = True
+			if i == numArgs - 1: # if dev is the last flag
+				print "ERROR: No device specified"
+				exit(os.EX_USAGE)
+			else:
+				targetDev = args[i+1]
+		elif arg == "--pre":
+			preFlag = True
+		elif arg == "--post":
+			postFlag = True
+		elif arg == "--dummy":
+			dummyFlag = True
+		elif arg == "--help":
+			printHelp()
+		elif arg == "--version":
+			printVersion()
+		elif i < numArgs - 1:
+			print "pywodim: unrecognized option `" + arg + "'"
+			print "See --help for more information."
+				
+	if os.path.exists(isoFile) is False:
+		print "ERROR: could not find file " + isoFile
 		exit(1)
+
+	if devFlag is True and os.path.exists(targetDev) is not True:
+		print "ERROR: could not find device " + targetDev
+
+	if targetDev == "":
+		targetDev = getDefaultDevice()
+		
+	if targetDev == None:
+		print "ERROR: No CD Burning device detected."
+		exit(1)
+
+	if preFlag is True:
+		md5File = isoFile + ".md5"
+		if os.path.exists(md5File) is not True:
+			print "ERROR: could not find the MD5 file for the ISO specified"
+			exit(1)
 
 #exit()
 
 # ****** STEP 1: Verify Image to be written ******
-if preFlag is True:
-	print "Verifying Image..."
-	dataOK = verifyImage(isoFile, md5File)
-	if dataOK is True:
-		print "ISO Image OK."
-	else:
-		print "ERROR: ISO Image MD5 sum incorrect. Aborting..."
-		exit(1)
-	time.sleep(1)
-	print
-# ***
-
-print "Opening tray..."
-openTray(targetDev)
-time.sleep(3)
-
-blankInserted = False
-
-# ****** Step 2: Wait for blank CD ******
-while blankInserted is False:
-	print "Insert blank CD..."
-	waitForMedia(targetDev)
-	print "Reading disc..."
-	
-	blankInserted = isBlankInserted(targetDev)
-	if blankInserted == False:
-		print "No blank disc detected! If you inserted a disc, it might have existing data."
+	if preFlag is True:
+		print "Verifying Image..."
+		dataOK = verifyImage(isoFile, md5File)
+		if dataOK is True:
+			print "ISO Image OK."
+		else:
+			print "ERROR: ISO Image MD5 sum incorrect. Aborting..."
+			exit(1)
 		time.sleep(1)
-		print "Ejecting disc..."
-		openTray()
-		time.sleep(3)
 		print
-
-print "Blank CD detected."
-time.sleep(1)
-print
 # ***
 
-# ****** Step 3: Burn CD ******
-print "Burning CD..."
-time.sleep(1)
-
-burnCode = 0#burn(isoFile, targetDev, True, False) # burn=y, eject=n
-time.sleep(3) # give a chance for the disc to spin down
-
-if burnCode is WODIM_EXIT_CODE_SUCCESS:
-	print "Disc burned."
-else:
-	print "There was an error in the burning process. See output above."
-	print "Aborting..."
-	exit(1)
-# ***
-
-time.sleep(1)
-print
-
-# ****** Step 4: Check data integrity ******
-if postFlag is True:
-	print "A data integrity test will now be performed."
-	print
-	time.sleep(1)
-	print "First, the disc will be ejected."
+	print "Opening tray..."
 	openTray(targetDev)
 	time.sleep(3)
 
-	discInserted = False
+	blankInserted = False
 
-	while discInserted is False:
-		print "Please re-insert media..."
-		time.sleep(1)
+# ****** Step 2: Wait for blank CD ******
+	while blankInserted is False:
+		print "Insert blank CD..."
 		waitForMedia(targetDev)
-		print "Waiting for system to mount disc..."
-		mntDir = waitForDiscMount(targetDev, 30)
-		if mntDir is None or len(mntDir) <= 0:
-			print "Could not read disc. (No mount point detected)"
-		else:
-			discInserted = True
+		print "Reading disc..."
+		
+		blankInserted = isBlankInserted(targetDev)
+		if blankInserted == False:
+			print "No blank disc detected! If you inserted a disc, it might have existing data."
+			time.sleep(1)
+			print "Ejecting disc..."
+			openTray()
+			time.sleep(3)
+			print
 
-	print "Disc detected. Mounted at " + mntDir
+	print "Blank CD detected."
+	time.sleep(1)
+	print
+# ***
+
+# ****** Step 3: Burn CD ******
+	print "Burning CD..."
+	time.sleep(1)
+
+	burnCode = 0#burn(isoFile, targetDev, True, False) # burn=y, eject=n
+	time.sleep(3) # give a chance for the disc to spin down
+
+	if burnCode is WODIM_EXIT_CODE_SUCCESS:
+		print "Disc burned."
+	else:
+		print "There was an error in the burning process. See output above."
+		print "Aborting..."
+		exit(1)
+# ***
+
 	time.sleep(1)
 	print
 
-	print "Verifying disc integrity..."
-	discOK = verifyDisc(mntDir)
-	time.sleep(3) # Let's give the disc a chance to spin down
+# ****** Step 4: Check data integrity ******
+	if postFlag is True:
+		print "A data integrity test will now be performed."
+		print
+		time.sleep(1)
+		print "First, the disc will be ejected."
+		openTray(targetDev)
+		time.sleep(3)
 
-	if discOK is True:
-		print "No errors found on disc."
-	else:
-		print "WARNING: Disc data contains errors!"
+		discInserted = False
 
-	time.sleep(6)
-	print
+		while discInserted is False:
+			print "Please re-insert media..."
+			time.sleep(1)
+			waitForMedia(targetDev)
+			print "Waiting for system to mount disc..."
+			mntDir = waitForDiscMount(targetDev, 30)
+			if mntDir is None or len(mntDir) <= 0:
+				print "Could not read disc. (No mount point detected)"
+			else:
+				discInserted = True
+
+		print "Disc detected. Mounted at " + mntDir
+		time.sleep(1)
+		print
+
+		print "Verifying disc integrity..."
+		discOK = verifyDisc(mntDir)
+		time.sleep(3) # Let's give the disc a chance to spin down
+
+		if discOK is True:
+			print "No errors found on disc."
+		else:
+			print "WARNING: Disc data contains errors!"
+
+		time.sleep(6)
+		print
 # ***
 
 # ****** Step 5: Eject disc ******
-print "Ejecting disc..."
-time.sleep(1)
-openTray(targetDev)
-time.sleep(3)
-print
+	print "Ejecting disc..."
+	time.sleep(1)
+	openTray(targetDev)
+	time.sleep(3)
+	print
 # ***
 
-print "Burning complete."
+	print "Burning complete."
 
 
 

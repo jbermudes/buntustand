@@ -3,7 +3,7 @@
 import socket
 import datetime
 
-import pywodim
+from pywodim import *
 
 PORT = 1337
 HOST = 'localhost'
@@ -48,17 +48,25 @@ def image_info(hash):
     # we need to modify the server code slightly (for an empty line in the description, use '\r\n \r\n')
     return ('38e3f4d0774a143bd24f1f2e42e80d63','ubuntu-8.04.1-desktop-i386.iso',"Ubuntu 8.04 (Hardy Heron) 32bit Desktop Image\r\n \r\nThis image is for the most common computers out there.  If you're in doubt, get this image.")
 
+# Pywodim
 def tray_open(): # Opens the Tray
-    pywodim.openTray()
+    openTray()
 
+# Pywodim
 def tray_close(): # Opens the Tray
-    pywodim.closeTray()
+    closeTray()
 
+# Pywodim
 def start_burn(file): # Starts burning (filename)
-    return
+    burn(file, isRealBurn=True)
 
+# Pywodim
 def tray_status(): # returns status of the tray (open, empty, full)
-    return 'full' # empty and full imply closed
+    device = getDefaultDevice()
+    if (isTrayOpen(device)):
+	    return 'open'
+    else:
+	return 'full' # empty and full imply closed
 
 def burn_status(): # Returns a number (percentage) of our progress through the burn
     return 26
