@@ -3,6 +3,8 @@
 import socket
 import datetime
 
+import pywodim
+
 PORT = 1337
 HOST = 'localhost'
 
@@ -47,7 +49,10 @@ def image_info(hash):
     return ('38e3f4d0774a143bd24f1f2e42e80d63','ubuntu-8.04.1-desktop-i386.iso',"Ubuntu 8.04 (Hardy Heron) 32bit Desktop Image\r\n \r\nThis image is for the most common computers out there.  If you're in doubt, get this image.")
 
 def tray_open(): # Opens the Tray
-    return
+    pywodim.openTray()
+
+def tray_close(): # Opens the Tray
+    pywodim.closeTray()
 
 def start_burn(file): # Starts burning (filename)
     return
