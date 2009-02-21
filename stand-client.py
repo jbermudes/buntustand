@@ -9,6 +9,8 @@ import time
 import socket
 
 import ubuntudisc
+from ubuntudisc import DiscPackage
+from ubuntudisc import UbuntuDisc
 
 #import logging
 #LOG_NAME = "command-log"
@@ -76,7 +78,11 @@ num_clients = 6
 queue_cursor = 0
 queue_mode = 0
 
-packages = ["Custom CD", "Package B", "Package C", "Package D", "Package E", "Package F", "Package G", "Package H"]
+packages = [DiscPackage("Custom CD", None), 
+            DiscPackage("1 Intrepid Desktop i386", [UbuntuDisc(ubuntudisc.UBUNTU, ubuntudisc.V_8_10, ubuntudisc.DESKTOP, ubuntudisc.I386)]),
+            DiscPackage("2 Hardy Ubuntu Desk. i386", [UbuntuDisc(ubuntudisc.UBUNTU, ubuntudisc.V_8_04_2, ubuntudisc.DESKTOP, ubuntudisc.I386), UbuntuDisc(ubuntudisc.UBUNTU, ubuntudisc.V_8_04_2, ubuntudisc.DESKTOP, ubuntudisc.I386)]),
+           ]
+package_names = []
 
 
 quantities = range(1, 64)
@@ -174,7 +180,12 @@ def submit_package_order(pkg_id):
     order = 1
 
 def submit_order(f, v, a, e, q, p):
-    order = 1
+    if (f,v,e,a) not in ubuntudisc.HASHES:
+        return False
+        
+    disc = UbuntuDisc(f,v,e,a)
+    hashcode = disc.hash
+    return True
 
 def eject_client(id):
     eject = 1
@@ -196,6 +207,13 @@ def delete_package(i):
     else:
         curses.flash()
 
+def update_package_names():
+    global package_names
+    
+    package_names = []
+    
+    for pkg in packages:
+        package_names.append(pkg.name)
 ########################################
 ## Queue stuff
 ########################################
@@ -335,7 +353,7 @@ def draw_menu_order(scr):
         pkg_id = order_cursor
     else:
         pkg_id = selected_pkg
-    draw_scrollpane(scr, 2, 1, 5, 60, "CD Packages", packages, pkg_id)
+    draw_scrollpane(scr, 2, 1, 5, 60, "CD Packages", package_names, pkg_id)
 
     # Single CD stuff
     indent = 9
@@ -361,10 +379,10 @@ def draw_menu_order(scr):
         draw_spinner(scr, row+3, indent, "Edition:", ubuntudisc.EDITION_NAMES[order_spinner_indices[3] % num_editions], (m and order_cursor == 3))
         
         # Quantity
-        draw_spinner(scr, row, indent+27, "Quantity:", str(quantities[order_spinner_indices[4] % len(quantities)]), (m and order_cursor == 4), 11, 5)
+        #draw_spinner(scr, row, indent+27, "Quantity:", str(quantities[order_spinner_indices[4] % len(quantities)]), (m and order_cursor == 4), 11, 5)
         
         # Priority
-        draw_spinner(scr, row+1, indent+27, "Priority:", "1", (m and order_cursor == 5), 11, 5)
+        #draw_spinner(scr, row+1, indent+27, "Priority:", "1", (m and order_cursor == 5), 11, 5)
 
     # Submits, Clear
     draw_button(scr, y_max-2, 10, "Reset", (order_mode == 2 and order_cursor % 2 == 0))
@@ -383,7 +401,7 @@ def draw_menu_packages(scr):
     
     selection = packages_cursor % len(packages)
     
-    draw_scrollpane(scr, 2, 1, 10, 60, "CD Packages", packages, selection)
+    draw_scrollpane(scr, 2, 1, 10, 60, "CD Packages", package_names, selection)
     
     scr.addstr(16, 2, "[I]nsert New     [E]dit     [D]elete")
 
@@ -643,9 +661,21 @@ def update_menu_order(scr):
                     a = order_spinner_indices[2] % num_architectures
                     e = order_spinner_indices[3] % num_editions
                     q = 1
-                    p = 50
-                    submit_order(f,v,a,e,q,p)
-                    alert_text = "Custom CD Order Submitted!"
+                    p = 50 # default vals
+                    q_str = get_console_string(scr, "Quantity: ", 10, 36, 4)
+                    p_str = get_console_string(scr, "Priority: ", 11, 36, 4)
+                    
+                    if len(q_str) > 0:
+                        q = int(q_str)
+                    
+                    if len(p_str) > 0:
+                        p = int(p_str)
+                    
+                    rtn = submit_order(f,v,a,e,q,p)
+                    if rtn is True:
+                        alert_text = "Custom CD Order Submitted!"
+                    else:
+                        alert_text = "ERR: This CD config is not available!"
                 else:
                     submit_package_order(selected_pkg)
                     alert_text = "Package Order Submitted!"
@@ -796,7 +826,7 @@ def main(stdscr):
     curses.init_pair(5,curses.COLOR_BLACK,curses.COLOR_GREEN) # Pass
     curses.init_pair(6,curses.COLOR_BLACK,curses.COLOR_RED) # Fail (This could be reverse edubuntu)
 
-    while (1):
+    """while (1):
         try:
             server.connect((HOST, PORT))
             break
@@ -804,7 +834,7 @@ def main(stdscr):
             # Since non-blocking, if it doesn't work immediately, EINPROGRESS
             # Subsequent calls (while in progress) give EALREADY
             # There are other errors (actual errors), we may want to check them
-            pass
+            pass"""
 
     stdscr.bkgd('*', curses.A_REVERSE )
     win_sidebar = curses.newwin(21,15,0,0)
@@ -840,9 +870,10 @@ def main(stdscr):
     draw_menu_clients(tabs[2])
     draw_menu_queue(tabs[3])
 
-    # Dummy stuff
+    # initial updates
     #get_queue()
     #get_clients()
+    update_package_names()
     
 
     global active_tab
@@ -867,7 +898,7 @@ def main(stdscr):
         curses.doupdate()
         
 
-        # begin socket stuff
+        """# begin socket stuff
         try: #try RX
             if len(server.recv(1024,socket.MSG_PEEK)) == 0:
                 server.close() # Bad connection, We likely want to reconnect
@@ -883,7 +914,7 @@ def main(stdscr):
                 outbuf = outbuf[sent:]
             except socket.error: # We only want to catch SIGPIPE (server disconnect)
                 pass
-        # done with socket stuff
+        # done with socket stuff"""
 
 
         # Handle Communication
