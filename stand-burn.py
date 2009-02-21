@@ -3,6 +3,7 @@
 import socket
 import datetime
 
+import ubuntudisc
 from pywodim import *
 
 PORT = 1337
@@ -32,7 +33,8 @@ def send(str):
 def get_hashes():
     # Obviously this is a stub
     # Returns a tuple of hashes
-    return ('38e3f4d0774a143bd24f1f2e42e80d63','bbd21ded02c06b41c59485266833937a','b78ef719e3361e726b89bab78c526ad0','c69e34e92d5402d1b87e6babc739f774')
+    # for SCaLE we're assuming that we have all of the ISO images
+    return ubuntudisc.TUPLES.keys()
 
 def drive_type():
     # Returns the type of the drive (assumed that DVD drives can burn CDs)
@@ -69,7 +71,7 @@ def tray_status(): # returns status of the tray (open, empty, full)
 	return 'full' # empty and full imply closed
 
 def burn_status(): # Returns a number (percentage) of our progress through the burn
-    return 26
+    return 0 # burning is a blocking operation right now, so if you're asking and I respond, im probably not burning
 
 def get_filename(hash): # Returns a filename (from an image directory? absolute path?) for the given hash
     return 'ubuntu-8.04.1-1-desktop-i386.iso'

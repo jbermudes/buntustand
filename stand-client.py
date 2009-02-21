@@ -108,9 +108,9 @@ client_status = ["BURNING (87%)", "TEST PASSED", "VERIFYING", "AWAITING MEDIA", 
 
 # clients are a tuple of (ID,Name,type,status). status is hash+DELIM+msg
 #('033312ebed6b1e5c5a691fd6e24f7532','Client0','CDR','1231231231231231231234\t0')
-clients = [('033312ebed6b1e5c5a691fd6e24f7532','Client0','CDR','ea6d44667ea3fd435954d6e1f0e89122\t0'),
-           ('033312ebed6b1e5c5a691fd6e24f7533','Client1','CDR','ea6d44667ea3fd435954d6e1f0e89122\t0'),
-           ('033312ebed6b1e5c5a691fd6e24f7534','Client2','CDR','ea6d44667ea3fd435954d6e1f0e89122\t0')
+clients = [('033312ebed6b1e5c5a691fd6e24f7532','Client0','CDR','ea6d44667ea3fd435954d6e1f0e89122\t50'),
+           ('033312ebed6b1e5c5a691fd6e24f7533','Client1','CDR','ea6d44667ea3fd435954d6e1f0e89122\tPASS'),
+           ('033312ebed6b1e5c5a691fd6e24f7534','Client2','CDR','ea6d44667ea3fd435954d6e1f0e89122\tFAIL')
             ]
 
 # Queue items are tuples of id,hash,priority
@@ -176,8 +176,16 @@ def add_cd(distro, version, arch, typ):
 #####################################
 ## Client Commands to Server
 #####################################
+
+# id shouldnt be 0 cause that's a custom CD
 def submit_package_order(pkg_id):
-    order = 1
+
+    pkg = packages[pkg_id]
+    
+    discs = pkg.contents
+    
+    for disc in discs:
+        submit_order(disc.flavor, disc.version, disc.architecture, disc.edition, 1, 50)
 
 def submit_order(f, v, a, e, q, p):
     if (f,v,e,a) not in ubuntudisc.HASHES:
@@ -517,38 +525,38 @@ def output_client(scr,index,client):
         hashcode,status = client[3].split(COM_DELIM) # hash,status
         
     if ubuntudisc.is_hash(hashcode):
-        item = ['Ubuntu', '7.10', 'i', 'D'] #eventually this will come from ubuntudisc
-        if item[0] == 'Ubuntu':
+        tup = ubuntudisc.hash2Tuple(hashcode)
+        disc = UbuntuDisc(tup[0], tup[1], tup[2], tup[3])
+        
+        f_str = ubuntudisc.FLAVOR_NAMES[disc.flavor]
+        e_str = ubuntudisc.EDITION_NAMES[disc.edition]
+        a_str = ubuntudisc.ARCHITECTURE_NAMES[disc.architecture]
+        
+        if disc.flavor == ubuntudisc.UBUNTU:
            attr = curses.color_pair(COLOR_U)
-        elif item[0] == 'Kubuntu':
+        elif disc.flavor == ubuntudisc.KUBUNTU:
            attr = curses.color_pair(COLOR_K) | curses.A_BOLD
-        elif item[0] == 'Edubuntu':
+        elif disc.flavor == ubuntudisc.EDUBUNTU:
            attr = curses.color_pair(COLOR_E) | curses.A_BOLD
-        elif item[0] == 'Xubuntu':
+        elif disc.flavor == ubuntudisc.XUBUNTU:
            attr = curses.color_pair(COLOR_X) | curses.A_BOLD
-    
-        if item[1][0:4] == '6.06':
-            ver = 'D'
-        elif item[1] == '6.10':
-            ver = 'E'
-        elif item[1] == '7.04':
-            ver = 'F'
-        elif item[1] == '7.10':
-            ver = 'G'
-        elif item[1][0:4] == '8.04':
-            ver = 'H'
-        elif item[1] == '8.10':
+        
+        # modified this to reflect our current SCaLE repitoire
+        if disc.version == ubuntudisc.V_8_10:
             ver = 'I'
-        elif item[1] == '9.04':
-            ver = 'J'
+        elif disc.version == ubuntudisc.V_8_04_2:
+            ver = 'H'
+        elif disc.version == ubuntudisc.V_8_04_1:
+            ver = 'H'
 
-        scr.addstr(1,index*11+1,item[0][0:1],attr)
+        scr.addstr(1,index*11+1,f_str[0:1],attr)
         scr.addstr(1,index*11+3,ver)
-        scr.addstr(1,index*11+5,item[2][0:1])
-        scr.addstr(1,index*11+7,item[3][0:1])
+        scr.addstr(1,index*11+5,e_str[0:1])
+        scr.addstr(1,index*11+7,a_str[0:1])
 
         #Now check Status
         attr = 0
+        prog = "?"
         if status == '0':
             attr |= 0
             prog = '0%'
@@ -570,6 +578,7 @@ def output_client(scr,index,client):
         elif status == 'FAIL':
             attr |= curses.color_pair(COLOR_FAIL) | curses.A_BOLD
             prog = '! FAIL !'
+            
         scr.addstr(2,index*11+1,prog,attr)
 
     else: # not a hash, must be AVAIL|EMPTY|OPEN # These will be status, hash will be disk/drive type (CDR|DVD)
@@ -704,9 +713,10 @@ def update_menu_packages(scr):
         packages_cursor -= 1
     elif keysdown[KEY_INSERT]:
         name = get_console_string(scr, "Title: ", 14, 2, 32)
-        add_package(name)
+        #add_package(name)
     elif keysdown[KEY_DELETE]:
-        delete_package(packages_cursor % len(packages))
+        jess_is_awesome = True # why doesnt python like empty elifs at the end of a function?
+        #delete_package(packages_cursor % len(packages))
 
 def update_menu_clients(scr):
     global clients_cursor, keysdown
